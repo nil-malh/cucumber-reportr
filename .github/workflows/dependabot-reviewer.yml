@@ -1,0 +1,229 @@
+# .github/workflows/dependabot-review-helper.yml
+# Helps organize and provide context for manual review of Dependabot PRs
+
+name: Dependabot Review Helper
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+  checks: read
+
+jobs:
+  dependabot-info:
+    runs-on: ubuntu-latest
+    # Only run on Dependabot PRs
+    if: github.actor == 'dependabot[bot]' && !github.event.pull_request.draft
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Analyze update impact
+        id: impact
+        run: |
+          UPDATE_TYPE="${{ steps.metadata.outputs.update-type }}"
+          PACKAGE_ECOSYSTEM="${{ steps.metadata.outputs.package-ecosystem }}"
+          DEPENDENCY_TYPE="${{ steps.metadata.outputs.dependency-type }}"
+          
+          # Determine risk level
+          RISK_LEVEL="🟢 LOW"
+          REVIEW_NOTES=""
+          
+          case "$UPDATE_TYPE" in
+            "version-update:semver-patch")
+              RISK_LEVEL="🟢 LOW"
+              REVIEW_NOTES="Patch updates typically include bug fixes and are safe to merge."
+              ;;
+            "version-update:semver-minor")
+              RISK_LEVEL="🟡 MEDIUM"
+              REVIEW_NOTES="Minor updates may include new features. Review changelog for breaking changes."
+              ;;
+            "version-update:semver-major")
+              RISK_LEVEL="🔴 HIGH"
+              REVIEW_NOTES="Major updates may contain breaking changes. Thorough testing recommended."
+              ;;
+            *"security"*)
+              RISK_LEVEL="🚨 SECURITY"
+              REVIEW_NOTES="Security update - should be prioritized for review and deployment."
+              ;;
+          esac
+          
+          # Package-specific notes
+          case "$PACKAGE_ECOSYSTEM" in
+            "maven")
+              REVIEW_NOTES="$REVIEW_NOTES For Java dependencies, run full test suite and check for compilation issues."
+              ;;
+            "npm")
+              REVIEW_NOTES="$REVIEW_NOTES For frontend dependencies, test UI functionality and check for console errors."
+              ;;
+            "github_actions")
+              REVIEW_NOTES="$REVIEW_NOTES GitHub Actions updates are usually safe but verify workflow functionality."
+              ;;
+          esac
+          
+          echo "risk-level=$RISK_LEVEL" >> $GITHUB_OUTPUT
+          echo "review-notes=$REVIEW_NOTES" >> $GITHUB_OUTPUT
+
+      - name: Generate test recommendations
+        id: test-recommendations
+        run: |
+          PACKAGE_ECOSYSTEM="${{ steps.metadata.outputs.package-ecosystem }}"
+          UPDATE_TYPE="${{ steps.metadata.outputs.update-type }}"
+          
+          case "$PACKAGE_ECOSYSTEM" in
+            "maven")
+              TEST_COMMANDS="# Java/Maven Testing Commands
+              mvn clean test                    # Run unit tests
+              mvn clean verify                  # Run all tests including integration
+              mvn clean install                 # Full build and install
+              mvn dependency:tree               # Check dependency conflicts"
+              ;;
+            "npm")
+              TEST_COMMANDS="# Frontend/npm Testing Commands  
+              cd front
+              npm run type-check                # TypeScript compilation
+              npm run lint                      # Code linting
+              npm test                          # Unit tests
+              npm run build                     # Production build
+              npm audit                         # Security audit"
+              ;;
+            "github_actions")
+              TEST_COMMANDS="# GitHub Actions Testing
+              # Check workflow syntax:
+              # - Review .github/workflows/ files
+              # - Test in a feature branch first
+              # - Monitor workflow runs after merge"
+              ;;
+          esac
+          
+          # Use a delimiter to handle multiline output
+          echo "test-commands<<EOF" >> $GITHUB_OUTPUT
+          echo "$TEST_COMMANDS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Add comprehensive review comment
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body "## 🤖 Dependabot Update Analysis
+
+          **📋 Update Summary:**
+          - **Package**: ${{ steps.metadata.outputs.dependency-names }}
+          - **Ecosystem**: ${{ steps.metadata.outputs.package-ecosystem }}
+          - **Type**: ${{ steps.metadata.outputs.update-type }}
+          - **Dependency**: ${{ steps.metadata.outputs.dependency-type }}
+          - **Previous**: \`${{ steps.metadata.outputs.previous-version }}\`
+          - **New**: \`${{ steps.metadata.outputs.new-version }}\`
+
+          **🎯 Risk Assessment:** ${{ steps.impact.outputs.risk-level }}
+
+          **📝 Review Notes:**
+          ${{ steps.impact.outputs.review-notes }}
+
+          **🧪 Recommended Testing:**
+          \`\`\`bash
+          ${{ steps.test-recommendations.outputs.test-commands }}
+          \`\`\`
+
+          **🔍 Manual Review Checklist:**
+          - [ ] Review changelog/release notes for breaking changes
+          - [ ] Run recommended test commands locally
+          - [ ] Check CI/CD pipeline results
+          - [ ] Test affected functionality manually
+          - [ ] Review security implications (if applicable)
+          - [ ] Verify no regression in existing features
+
+          **📚 Useful Links:**
+          - [View changes](${{ github.event.pull_request.html_url }}/files)
+          - [Dependency changelog](${{ steps.metadata.outputs.homepage }})
+          - [Security advisories](https://github.com/advisories?query=${{ steps.metadata.outputs.dependency-names }})
+
+          ---
+          💡 **Tip**: After reviewing, you can merge with \`gh pr merge ${{ github.event.pull_request.number }} --squash\` or use the GitHub UI."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add ecosystem-specific labels
+        run: |
+          ECOSYSTEM="${{ steps.metadata.outputs.package-ecosystem }}"
+          UPDATE_TYPE="${{ steps.metadata.outputs.update-type }}"
+          
+          # Add risk-level label
+          case "$UPDATE_TYPE" in
+            "version-update:semver-patch")
+              gh pr edit ${{ github.event.pull_request.number }} --add-label "risk:low"
+              ;;
+            "version-update:semver-minor")
+              gh pr edit ${{ github.event.pull_request.number }} --add-label "risk:medium"
+              ;;
+            "version-update:semver-major")
+              gh pr edit ${{ github.event.pull_request.number }} --add-label "risk:high"
+              ;;
+            *"security"*)
+              gh pr edit ${{ github.event.pull_request.number }} --add-label "security" --add-label "priority:high"
+              ;;
+          esac
+          
+          # Add component-specific labels
+          case "$ECOSYSTEM" in
+            "maven")
+              gh pr edit ${{ github.event.pull_request.number }} --add-label "component:backend"
+              ;;
+            "npm")
+              gh pr edit ${{ github.event.pull_request.number }} --add-label "component:frontend"
+              ;;
+            "github_actions")
+              gh pr edit ${{ github.event.pull_request.number }} --add-label "component:ci-cd"
+              ;;
+          esac
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Generate weekly dependency report
+  dependency-report:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: Generate dependency update summary
+        run: |
+          echo "# 📊 Weekly Dependency Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get open Dependabot PRs
+          OPEN_PRS=$(gh pr list --author "dependabot[bot]" --state open --json number,title,labels,createdAt)
+          
+          if [ "$OPEN_PRS" != "[]" ]; then
+            echo "## 🔄 Open Dependency Updates" >> $GITHUB_STEP_SUMMARY
+            echo "| PR | Title | Risk | Age |" >> $GITHUB_STEP_SUMMARY
+            echo "|----|-------|------|-----|" >> $GITHUB_STEP_SUMMARY
+            
+            echo "$OPEN_PRS" | jq -r '.[] | "| #\(.number) | \(.title) | \(.labels[]? | select(.name | startswith("risk:")) | .name) | \(.createdAt | split("T")[0]) |"' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No open dependency updates" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📈 This Week's Activity" >> $GITHUB_STEP_SUMMARY
+          
+          # Get merged PRs from this week
+          MERGED_PRS=$(gh pr list --author "dependabot[bot]" --state merged --limit 20 --json number,title,mergedAt)
+          
+          if [ "$MERGED_PRS" != "[]" ]; then
+            WEEK_AGO=$(date -d '7 days ago' '+%Y-%m-%d' 2>/dev/null || date -v-7d '+%Y-%m-%d')
+            echo "Dependencies updated since $WEEK_AGO:" >> $GITHUB_STEP_SUMMARY
+            echo "$MERGED_PRS" | jq -r '.[] | select(.mergedAt >= "'$WEEK_AGO'") | "- #\(.number): \(.title)"' >> $GITHUB_STEP_SUMMARY
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

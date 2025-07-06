@@ -1,58 +1,222 @@
 version: 2
 updates:
-  # Maven dependencies
+
   - package-ecosystem: "maven"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
+      time: "08:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 8
     reviewers:
       - "maintainers"
     assignees:
       - "maintainers"
     commit-message:
-      prefix: "chore"
+      prefix: "deps"
+      prefix-development: "deps-dev"
       include: "scope"
     labels:
       - "dependencies"
       - "java"
+    # Group related dependencies together
+    groups:
+      testing-framework:
+        patterns:
+          - "org.junit*"
+          - "org.mockito*"
+          - "org.testng*"
+          - "org.hamcrest*"
+          - "org.assertj*"
+        update-types:
+          - "minor"
+          - "patch"
+      cucumber-framework:
+        patterns:
+          - "io.cucumber*"
+        update-types:
+          - "minor"
+          - "patch"
+      build-tools:
+        patterns:
+          - "org.apache.maven*"
+          - "org.jacoco*"
+          - "org.sonarsource*"
+        update-types:
+          - "minor"
+          - "patch"
+    # Ignore certain dependencies that require manual updates
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    rebase-strategy: "auto"
 
-  # npm dependencies
+  # =============================================================================
+  # NPM DEPENDENCIES (React Frontend)
+  # =============================================================================
   - package-ecosystem: "npm"
     directory: "/front"
     schedule:
       interval: "weekly"
-      day: "monday"
-      time: "09:00"
+      day: "tuesday" 
+      time: "08:00"
+      timezone: "UTC"
     open-pull-requests-limit: 10
     reviewers:
       - "maintainers"
     assignees:
       - "maintainers"
     commit-message:
-      prefix: "chore"
+      prefix: "deps"
+      prefix-development: "deps-dev"
       include: "scope"
     labels:
       - "dependencies"
       - "javascript"
+      - "frontend"
+      - "automerge-candidate"
+    groups:
+      react-ecosystem:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react*"
+          - "react-router*"
+          - "react-query"
+          - "@tanstack/react-query"
+        update-types:
+          - "minor"
+          - "patch"
+      testing-tools:
+        patterns:
+          - "@testing-library/*"
+          - "vitest"
+          - "@vitest/*"
+          - "jest"
+          - "@jest/*"
+          - "jsdom"
+          - "happy-dom"
+        update-types:
+          - "minor"
+          - "patch"
+      build-tools:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+          - "rollup"
+          - "esbuild"
+          - "typescript"
+          - "@types/*"
+          - "eslint"
+          - "@eslint/*"
+          - "prettier"
+        update-types:
+          - "minor"
+          - "patch"
+      ui-components:
+        patterns:
+          - "@mui/*"
+          - "@emotion/*"
+          - "styled-components"
+          - "@styled-components/*"
+          - "tailwindcss"
+          - "@tailwindcss/*"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        # Node types can be tricky, update manually
+        update-types: ["version-update:semver-major"]
+      # ESLint major updates often have breaking changes
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/*"
+        update-types: ["version-update:semver-major"]
+    # Allow all dependency types
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    rebase-strategy: "auto"
+    # Enable Dependabot to update package-lock.json
+    versioning-strategy: "increase"
 
-  # GitHub Actions
+  # =============================================================================
+  # GITHUB ACTIONS
+  # =============================================================================
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "monday"
-      time: "09:00"
+      day: "wednesday"
+      time: "08:00"
+      timezone: "UTC"
     open-pull-requests-limit: 5
     reviewers:
       - "maintainers"
     assignees:
       - "maintainers"
     commit-message:
-      prefix: "chore"
+      prefix: "ci"
       include: "scope"
     labels:
       - "dependencies"
       - "github-actions"
+      - "ci-cd"
+      - "automerge-candidate"
+    groups:
+      core-actions:
+        patterns:
+          - "actions/checkout"
+          - "actions/setup-*"
+          - "actions/cache"
+          - "actions/upload-artifact"
+          - "actions/download-artifact"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+      security-actions:
+        patterns:
+          - "github/codeql-action"
+          - "ossf/scorecard-action"
+          - "securecodewarrior/github-action-add-sarif"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+      quality-actions:
+        patterns:
+          - "codecov/codecov-action"
+          - "sonarcloud-quality-gate-action"
+          - "dorny/test-reporter"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+      release-actions:
+        patterns:
+          - "softprops/action-gh-release"
+          - "mikepenz/release-changelog-builder-action"
+          - "release-drafter/release-drafter"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+    allow:
+      - dependency-type: "direct"
+    rebase-strategy: "auto"
+
+ 
