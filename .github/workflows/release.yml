@@ -1,0 +1,601 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.2.3)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Pre-release'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+  pages: write
+  id-token: write
+  actions: read
+  pull-requests: write
+  checks: write
+
+env:
+  MAVEN_OPTS: -Xmx2048m
+  JAVA_VERSION: '17'
+  NODE_VERSION: '22'
+
+jobs:
+  # Validate the release
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is-prerelease: ${{ steps.version.outputs.is-prerelease }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Extract version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+            IS_PRERELEASE="${{ github.event.inputs.prerelease }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+            # Check if this is a pre-release (contains alpha, beta, rc, etc.)
+            if [[ $VERSION =~ (alpha|beta|rc|dev|snapshot) ]]; then
+              IS_PRERELEASE=true
+            else
+              IS_PRERELEASE=false
+            fi
+          fi
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "is-prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+          echo "✅ Version: $VERSION (prerelease: $IS_PRERELEASE)"
+
+      - name: Validate version format
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if ! [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
+            echo "❌ Invalid version format: $VERSION"
+            echo "Expected format: MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH-PRERELEASE"
+            exit 1
+          fi
+          echo "✅ Version format is valid"
+
+      - name: Check if version already exists
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "❌ Version v$VERSION already exists as a git tag"
+            exit 1
+          fi
+          
+          # Check if release exists on GitHub
+          RELEASE_CHECK=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/v$VERSION")
+          
+          if [ "$RELEASE_CHECK" = "200" ]; then
+            echo "❌ Release v$VERSION already exists on GitHub"
+            exit 1
+          fi
+          
+          echo "✅ Version v$VERSION is available"
+
+      - name: Generate changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v4
+        with:
+          configuration: |
+            {
+              "categories": [
+                {
+                  "title": "## 🚀 Features",
+                  "labels": ["feature", "feat", "enhancement", "new"]
+                },
+                {
+                  "title": "## 🐛 Bug Fixes", 
+                  "labels": ["bug", "fix", "bugfix", "hotfix"]
+                },
+                {
+                  "title": "## 📚 Documentation",
+                  "labels": ["documentation", "docs", "readme"]
+                },
+                {
+                  "title": "## 🔧 Maintenance",
+                  "labels": ["maintenance", "chore", "dependencies", "deps", "ci", "build"]
+                },
+                {
+                  "title": "## ⚡ Performance",
+                  "labels": ["performance", "perf", "optimization"]
+                },
+                {
+                  "title": "## 🧪 Testing",
+                  "labels": ["test", "tests", "testing", "coverage"]
+                },
+                {
+                  "title": "## 🎨 Style & Refactoring",
+                  "labels": ["style", "refactor", "refactoring", "cleanup"]
+                },
+                {
+                  "title": "## 🔧 Other Changes",
+                  "labels": []
+                }
+              ],
+              "sort": "ASC",
+              "pr_template": "- #{{TITLE}} by @#{{AUTHOR}} in ##{{NUMBER}}",
+              "empty_template": "- No changes in this release",
+              "label_extractor": [
+                {
+                  "pattern": "(feat|feature|new)",
+                  "target": "feature"
+                },
+                {
+                  "pattern": "(fix|bug|hotfix)",
+                  "target": "bug"
+                },
+                {
+                  "pattern": "(docs?|documentation|readme)",
+                  "target": "documentation"
+                },
+                {
+                  "pattern": "(chore|maintenance|deps?|dependencies|ci|build)",
+                  "target": "maintenance"
+                },
+                {
+                  "pattern": "(perf|performance|optimization)",
+                  "target": "performance"
+                },
+                {
+                  "pattern": "(test|tests|testing|coverage)",
+                  "target": "test"
+                },
+                {
+                  "pattern": "(style|refactor|refactoring|cleanup)",
+                  "target": "style"
+                }
+              ],
+              "transformers": [
+                {
+                  "pattern": "\\[(.+)\\](.+)",
+                  "target": "$1: $2"
+                }
+              ]
+            }
+          fromTag: ${{ github.event.before != '0000000000000000000000000000000000000000' && github.event.before || '' }}
+          toTag: ${{ github.sha }}
+          failOnError: false
+          fetchViaCommits: true
+          commitMode: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Build and test everything
+  build:
+    needs: [validate]
+    runs-on: ubuntu-latest
+    outputs:
+      artifacts: ${{ steps.artifacts.outputs.paths }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          server-id: central
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: front/package-lock.json
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Configure Git user
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+
+      - name: Update version in pom.xml
+        run: |
+          mvn versions:set -DnewVersion=${{ needs.validate.outputs.version }}
+          mvn versions:commit
+          echo "✅ Updated version to ${{ needs.validate.outputs.version }}"
+
+      - name: Install frontend dependencies
+        run: |
+          cd front
+          npm ci
+          echo "✅ Frontend dependencies installed"
+
+      - name: Run frontend tests
+        run: |
+          cd front
+          npm run type-check
+          npm run lint
+          npm test -- --coverage --watchAll=false --passWithNoTests
+          echo "✅ Frontend tests passed"
+
+      - name: Build frontend
+        run: |
+          cd front
+          npm run build
+          echo "✅ Frontend built successfully"
+
+      - name: Build and test backend
+        run: |
+          mvn clean install 
+          echo "✅ Backend built and tested successfully"
+
+      - name: Prepare artifacts
+        id: artifacts
+        run: |
+          mkdir -p release-artifacts
+          
+          # Main JAR and additional JARs
+          cp target/cucumber-reportr-${{ needs.validate.outputs.version }}.jar release-artifacts/
+          # Frontend build (if exists)
+          if [ -d "front/dist" ]; then
+            cd front/dist
+            tar -czf ../../release-artifacts/frontend-build-${{ needs.validate.outputs.version }}.tar.gz .
+            cd ../..
+            echo "✅ Frontend build packaged"
+          fi
+          
+          # Frontend coverage report
+          if [ -d front/coverage ]; then
+            cd front/coverage
+            tar -czf ../../release-artifacts/frontend-coverage-report-${{ needs.validate.outputs.version }}.tar.gz .
+            cd ../..
+            echo "✅ Frontend coverage packaged"
+          fi
+          
+          # Backend coverage report
+          if [ -d target/site/jacoco ]; then
+            cd target/site/jacoco
+            tar -czf ../../../release-artifacts/backend-coverage-report-${{ needs.validate.outputs.version }}.tar.gz .
+            cd ../../..
+            echo "✅ Backend coverage packaged"
+          fi
+          
+          # Javadoc site (if exists)
+          if [ -d target/site/apidocs ]; then
+            cd target/site/apidocs
+            tar -czf ../../../release-artifacts/javadoc-${{ needs.validate.outputs.version }}.tar.gz .
+            cd ../../..
+            echo "✅ Javadoc packaged"
+          fi
+          
+          # Create a source archive
+          git archive --format=tar.gz --prefix=cucumber-reportr-${{ needs.validate.outputs.version }}/ HEAD > release-artifacts/cucumber-reportr-${{ needs.validate.outputs.version }}-source.tar.gz
+          echo "✅ Source archive created"
+          
+          # List all artifacts
+          echo "📦 Release artifacts created:"
+          ls -la release-artifacts/
+          
+          # Count and output artifacts
+          ARTIFACT_COUNT=$(find release-artifacts -type f | wc -l)
+          echo "Total artifacts: $ARTIFACT_COUNT"
+          echo "paths=$(find release-artifacts -type f -printf '%p,')" >> $GITHUB_OUTPUT
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts-${{ needs.validate.outputs.version }}
+          path: release-artifacts/
+          retention-days: 30
+
+  # Deploy to Maven Central
+  deploy:
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          server-id: central
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: front/package-lock.json
+
+      - name: Install frontend dependencies and build
+        run: |
+          cd front
+          npm ci
+          npm run build
+
+      - name: Update version in pom.xml
+        run: |
+          mvn versions:set -DnewVersion=${{ needs.validate.outputs.version }}
+          mvn versions:commit
+
+      - name: Deploy to Maven Central
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          echo "🚀 Deploying to Maven Central..."
+          mvn --no-transfer-progress -B clean deploy -P release -s .mvn/settings.xml -DskipTests
+          echo "✅ Successfully deployed to Maven Central"
+
+  # Create GitHub Release
+  release:
+    needs: [validate, build, deploy]
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts-${{ needs.validate.outputs.version }}
+          path: release-artifacts
+
+      - name: Generate checksums
+        run: |
+          cd release-artifacts
+          for file in *.jar; do
+            if [ -f "$file" ]; then
+              sha256sum "$file" >> checksums.txt
+            fi
+          done
+          echo "Generated checksums:"
+          cat checksums.txt
+
+      - name: Create Release Body
+        id: release-body
+        run: |
+          {
+            echo "# 🎉 Cucumber Reportr v${{ needs.validate.outputs.version }}"
+            echo ""
+            echo "A powerful and intuitive HTML report generator for Cucumber test results."
+            echo ""
+            echo "${{ needs.validate.outputs.changelog }}"
+            echo ""
+            echo "## 📦 Installation"
+            echo ""
+            echo "### Maven"
+            echo '```xml'
+            echo '<dependency>'
+            echo '    <groupId>io.github.nil-malh</groupId>'
+            echo '    <artifactId>cucumber-reportr</artifactId>'
+            echo '    <version>${{ needs.validate.outputs.version }}</version>'
+            echo '</dependency>'
+            echo '```'
+            echo ""
+            echo "### Gradle"
+            echo '```gradle'
+            echo "implementation 'io.github.nil-malh:cucumber-reportr:${{ needs.validate.outputs.version }}'"
+            echo '```'
+            echo ""
+            echo "## 🚀 Quick Start"
+            echo ""
+            echo '```java'
+            echo '@CucumberOptions('
+            echo '    plugin = {"io.github.nil_malh.cucumber.reportr.CucumberReportPlugin:target/cucumber-reportr"}'
+            echo ')'
+            echo 'public class CucumberTest {'
+            echo '    // Your test class'
+            echo '}'
+            echo '```'
+            echo ""
+            echo "## 📊 What's Included"
+            echo ""
+            echo "- 📁 **Main Library**: \`cucumber-reportr-${{ needs.validate.outputs.version }}.jar\`"
+            if [ -f "release-artifacts/frontend-build-${{ needs.validate.outputs.version }}.tar.gz" ]; then
+              echo "- 🌐 **Frontend Build**: Pre-built frontend assets"
+            fi
+            if [ -f "release-artifacts/cucumber-reportr-${{ needs.validate.outputs.version }}-source.tar.gz" ]; then
+              echo "- 📦 **Source Archive**: Complete source code"
+            fi
+            echo "- 📈 **Coverage Reports**: Frontend and backend test coverage"
+            echo ""
+            echo "## 🔍 Quality & Testing"
+            echo ""
+            echo "- ✅ **Code Quality**: Verified with SonarCloud"
+            echo "- 🧪 **Test Coverage**: Comprehensive frontend and backend coverage"
+            echo "- 🔒 **Security**: Dependency vulnerability scanning"
+            echo "- 📋 **Standards**: Follows semantic versioning and conventional commits"
+            echo ""
+            echo "## 🔗 Useful Links"
+            echo ""
+            echo "- 📚 [Documentation & Examples](https://github.com/${{ github.repository }}#readme)"
+            echo "- 🏷️ [Maven Central Repository](https://search.maven.org/artifact/io.github.nil-malh/cucumber-reportr/${{ needs.validate.outputs.version }}/jar)"
+            echo "- 🐛 [Report Issues](https://github.com/${{ github.repository }}/issues)"
+            echo "- 💬 [Discussions](https://github.com/${{ github.repository }}/discussions)"
+            echo "- 🔄 [Previous Releases](https://github.com/${{ github.repository }}/releases)"
+            echo ""
+            echo "## 📋 File Checksums (SHA256)"
+            echo ""
+            echo "| File | SHA256 |"
+            echo "|------|--------|"
+            if [ -f "release-artifacts/checksums.txt" ]; then
+              while IFS= read -r line; do
+                checksum=$(echo "$line" | cut -d' ' -f1)
+                filename=$(echo "$line" | cut -d' ' -f2- | sed 's|release-artifacts/||')
+                echo "| \`$filename\` | \`$checksum\` |"
+              done < release-artifacts/checksums.txt
+            fi
+            echo ""
+            echo "## 📈 Release Statistics"
+            echo ""
+            ARTIFACT_COUNT=$(find release-artifacts -type f -name "*.jar" -o -name "*.tar.gz" | wc -l)
+            TOTAL_SIZE=$(du -sh release-artifacts | cut -f1)
+            echo "- **Total Artifacts**: $ARTIFACT_COUNT"
+            echo "- **Total Size**: $TOTAL_SIZE"
+            echo "- **Build Date**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo "- **Git Commit**: [\`$(git rev-parse --short HEAD)\`](https://github.com/${{ github.repository }}/commit/$(git rev-parse HEAD))"
+            echo ""
+            echo "---"
+            echo ""
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ github.event.before }}...v${{ needs.validate.outputs.version }}"
+            echo ""
+            echo "*Generated automatically by [GitHub Actions](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
+          } > release-body.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.validate.outputs.version }}
+          name: Release v${{ needs.validate.outputs.version }}
+          body_path: release-body.md
+          draft: false
+          prerelease: ${{ needs.validate.outputs.is-prerelease }}
+          make_latest: ${{ needs.validate.outputs.is-prerelease == 'false' }}
+          files: |
+            release-artifacts/*.jar
+            release-artifacts/*.tar.gz
+            release-artifacts/checksums.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Update documentation
+  update-docs:
+    needs: [validate, build, release]
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() && needs.release.result == 'success' && needs.validate.outputs.is-prerelease == 'false' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
+
+      - name: Update version in README
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          # Update Maven dependency version in README
+          sed -i "s/<version>[0-9]\+\.[0-9]\+\.[0-9]\+/<version>$VERSION/g" README.md
+          # Update Gradle dependency version in README
+          sed -i "s/cucumber-reportr:[0-9]\+\.[0-9]\+\.[0-9]\+/cucumber-reportr:$VERSION/g" README.md
+          echo "✅ Updated README.md with version $VERSION"
+
+      - name: Commit version updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if git diff --quiet; then
+            echo "No changes to commit"
+          else
+            git add README.md CONTRIBUTING.md
+            git commit -m "docs: update version references to v${{ needs.validate.outputs.version }} [skip ci]"
+            git push origin main
+            echo "✅ Committed version updates"
+          fi
+
+  # Notify on completion
+  notify:
+    needs: [validate, build, deploy, release]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Release Summary
+        run: |
+          echo "# 🎉 Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version**: v${{ needs.validate.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Pre-release**: ${{ needs.validate.outputs.is-prerelease }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Release Date**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "**Git Commit**: $(git rev-parse --short HEAD)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "## 📊 Job Status" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status | Duration |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Validate | ${{ needs.validate.result }} | - |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ${{ needs.build.result }} | - |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deploy | ${{ needs.deploy.result }} | - |" >> $GITHUB_STEP_SUMMARY
+          echo "| Release | ${{ needs.release.result }} | - |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.release.result }}" == "success" ]]; then
+            echo "## ✅ Release Completed Successfully!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔗 Important Links" >> $GITHUB_STEP_SUMMARY
+            echo "- 🏷️ **[GitHub Release](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.validate.outputs.version }})**" >> $GITHUB_STEP_SUMMARY
+            echo "- 📦 **[Maven Central](https://search.maven.org/artifact/io.github.nil-malh/cucumber-reportr/${{ needs.validate.outputs.version }}/jar)**" >> $GITHUB_STEP_SUMMARY
+            echo "- 📚 **[Documentation](https://github.com/${{ github.repository }}#readme)**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            echo "### 📋 Release Artifacts" >> $GITHUB_STEP_SUMMARY
+            echo "The following artifacts were published:" >> $GITHUB_STEP_SUMMARY
+            echo "- Main JAR: \`cucumber-reportr-${{ needs.validate.outputs.version }}.jar\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Coverage Reports: Frontend and Backend test coverage" >> $GITHUB_STEP_SUMMARY
+            echo "- Source Archive: Complete source code snapshot" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            echo "### 🚀 Next Steps" >> $GITHUB_STEP_SUMMARY
+            echo "1. Update your projects to use version \`${{ needs.validate.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "2. Check the [changelog](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.validate.outputs.version }}) for breaking changes" >> $GITHUB_STEP_SUMMARY
+            echo "3. Share feedback in [GitHub Discussions](https://github.com/${{ github.repository }}/discussions)" >> $GITHUB_STEP_SUMMARY
+            
+          elif [[ "${{ needs.release.result }}" == "failure" ]]; then
+            echo "## ❌ Release Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The release process encountered an error. Please check the job logs above for details." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔍 Troubleshooting" >> $GITHUB_STEP_SUMMARY
+            echo "1. Check the failed job logs for specific error messages" >> $GITHUB_STEP_SUMMARY
+            echo "2. Verify all required secrets are configured correctly" >> $GITHUB_STEP_SUMMARY
+            echo "3. Ensure the version doesn't already exist" >> $GITHUB_STEP_SUMMARY
+            echo "4. Check Maven Central credentials and GPG key setup" >> $GITHUB_STEP_SUMMARY
+            
+          else
+            echo "## ⏸️ Release Cancelled or Skipped" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The release was cancelled or skipped due to job dependencies." >> $GITHUB_STEP_SUMMARY
+          fi

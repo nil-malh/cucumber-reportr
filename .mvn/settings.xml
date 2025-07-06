@@ -1,0 +1,30 @@
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+    <activeProfiles>
+        <activeProfile>central</activeProfile>
+    </activeProfiles>
+
+    <profiles>
+        <profile>
+            <id>central</id>
+            <properties>
+                <MAVEN_USERNAME>${env.MAVEN_USERNAME}</MAVEN_USERNAME>
+                <MAVEN_PASSWORD>${env.MAVEN_PASSWORD}</MAVEN_PASSWORD>
+            </properties>
+        </profile>
+    </profiles>
+    <servers>
+        <server>
+            <id>central</id>
+            <username>${MAVEN_USERNAME}</username>
+            <password>${MAVEN_PASSWORD}</password>
+        </server>
+        <server>
+            <id>github</id>
+            <username>${env.GITHUB_USERNAME}</username>
+            <password>${env.GITHUB_TOKEN}</password>
+        </server>
+    </servers>
+</settings>

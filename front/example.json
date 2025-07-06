@@ -1,0 +1,50 @@
+[
+  {
+    "uri": "features/reporting.feature",
+    "id": "reporting",
+    "keyword": "Feature",
+    "name": "Reporting",
+    "description": "As a user, I want a good looking report so that I can easily understand the test results.",
+    "line": 1,
+    "elements": [
+      {
+        "id": "reporting;view-report",
+        "keyword": "Scenario",
+        "name": "View Report",
+        "description": "",
+        "line": 5,
+        "type": "scenario",
+        "steps": [
+          {
+            "keyword": "Given ",
+            "name": "I have a generated report",
+            "line": 6,
+            "result": {
+              "status": "passed",
+              "duration": 1000000
+            }
+          },
+          {
+            "keyword": "When ",
+            "name": "I use the cucumber-reportr",
+            "line": 7,
+            "result": {
+              "status": "passed",
+              "duration": 2000000
+            }
+          },
+          {
+            "keyword": "Then ",
+            "name": "I should see a visually appealing report",
+            "line": 8,
+            "result": {
+              "status": "passed",
+              "duration": 3000000
+            }
+          }
+        ]
+      }
+    ]
+  }
+]
+
