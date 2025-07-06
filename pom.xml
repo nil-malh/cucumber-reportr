@@ -53,7 +53,7 @@
         <!-- Frontend configuration -->
         <node.version>v22.9.0</node.version>
         <npm.version>11.4.2</npm.version>
-        <frontend.maven.plugin.version>1.15.0</frontend.maven.plugin.version>
+        <frontend.maven.plugin.version>1.15.1</frontend.maven.plugin.version>
     </properties>
 
     <dependencies>
