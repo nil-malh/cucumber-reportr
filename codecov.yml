@@ -3,7 +3,6 @@ codecov:
   
   # Basic configuration
   require_ci_to_pass: yes
-  wait_for_ci: yes
   max_report_age: 24
   archive:
     uploads: yes
@@ -11,8 +10,8 @@ codecov:
   # Notification settings
   notify:
     after_n_builds: 2  # Wait for both frontend and backend coverage
-    countdown: 60s     # Wait 60 seconds for uploads
-    delay: 10s         # Delay notifications by 10 seconds
+    countdown: 60       # Wait 60 seconds for uploads
+    delay: 10          # Delay notifications by 10 seconds
 
 # Coverage configuration
 coverage:
