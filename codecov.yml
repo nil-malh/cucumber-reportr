@@ -1,0 +1,156 @@
+codecov:
+  token: CODECOV_TOKEN # Set this as a repository secret
+  
+  # Basic configuration
+  require_ci_to_pass: yes
+  max_report_age: 24
+  archive:
+    uploads: yes
+
+  # Notification settings
+  notify:
+    after_n_builds: 2  # Wait for both frontend and backend coverage
+    countdown: 60       # Wait 60 seconds for uploads
+    delay: 10          # Delay notifications by 10 seconds
+
+# Coverage configuration
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+
+  # Status checks for pull requests
+  status:
+    project:
+      default:
+        # Overall project coverage target
+        target: 80%
+        threshold: 2%  # Allow 2% drop in coverage
+        base: auto
+        if_no_uploads: error
+        if_not_found: success
+        if_ci_failed: error
+      
+      backend:
+        # Java backend coverage
+        target: 85%
+        threshold: 3%
+        flags:
+          - backend
+        paths:
+          - "src/main/java"
+          - "src/test/java"
+        if_no_uploads: error
+      
+      frontend:
+        # React frontend coverage
+        target: 75%
+        threshold: 3%
+        flags:
+          - frontend
+        paths:
+          - "front/src"
+        if_no_uploads: error
+
+    patch:
+      default:
+        # Coverage for new code in PRs
+        target: 80%
+        threshold: 5%
+        base: auto
+        if_no_uploads: error
+        if_not_found: success
+      
+      backend:
+        target: 85%
+        threshold: 5%
+        flags:
+          - backend
+        paths:
+          - "src/main/java"
+      
+      frontend:
+        target: 75%
+        threshold: 5%
+        flags:
+          - frontend
+        paths:
+          - "front/src"
+
+# Component definitions for the monorepo
+component_management:
+  individual_components:
+    - component_id: backend
+      name: "Java Backend"
+      paths:
+        - "src/main/java/**"
+        - "src/test/java/**"
+        - "target/**"
+      
+    - component_id: frontend
+      name: "React Frontend"
+      paths:
+        - "front/src/**"
+        - "front/coverage/**"
+
+# Flag configuration
+flags:
+  backend:
+    paths:
+      - src/main/java
+      - src/test/java
+    carryforward: false
+    
+  frontend:
+    paths:
+      - front/src
+    carryforward: false
+
+# File ignore patterns
+ignore:
+  - "**/*.xml"          # Maven/build files
+  - "**/*.properties"   # Configuration files
+  - "**/target/**"      # Maven build output (except coverage)
+  - "**/node_modules/**" # Node.js dependencies
+  - "**/dist/**"        # Frontend build output
+  - "**/build/**"       # Build artifacts
+  - "**/.mvn/**"        # Maven wrapper
+  - "**/mvnw"           # Maven wrapper scripts
+  - "**/mvnw.cmd"       # Maven wrapper scripts
+  - "**/*.md"           # Documentation
+  - "**/.github/**"     # GitHub workflows
+  - "**/public/**"      # Static frontend assets
+  - "front/src/index.tsx"     # Entry point
+  - "front/src/index.css"     # Global styles
+  - "front/src/App.css"       # Component styles
+  - "front/src/vite-env.d.ts" # Vite type definitions
+  - "front/src/setupTests.ts" # Test setup
+  - "**/*.config.js"    # Configuration files
+  - "**/*.config.ts"    # Configuration files
+  - "**/vite.config.ts" # Vite configuration
+  - "**/tsconfig.json"  # TypeScript configuration
+  - "**/jest.config.js" # Jest configuration
+
+# Parsing configuration
+parsers:
+  gcov:
+    branch_detection:
+      conditional: yes
+      loop: yes
+      method: no
+      macro: no
+
+# Pull request comments
+comment:
+  layout: "reach,diff,flags,tree,reach"
+  behavior: default
+  require_changes: true
+  require_base: no
+  require_head: yes
+  branches:
+    - "main"
+    - "develop"
+
+# GitHub integration
+github_checks:
+  annotations: true
