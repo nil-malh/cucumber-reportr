@@ -363,7 +363,7 @@ jobs:
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHARSE }}
         run: |
           echo "🚀 Deploying to Maven Central..."
           mvn --no-transfer-progress -B clean deploy -P release -s .mvn/settings.xml -DskipTests
