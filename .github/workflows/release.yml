@@ -40,7 +40,7 @@ jobs:
       changelog: ${{ steps.changelog.outputs.changelog }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           
@@ -190,7 +190,7 @@ jobs:
       artifacts: ${{ steps.artifacts.outputs.paths }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -321,7 +321,7 @@ jobs:
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
@@ -376,10 +376,10 @@ jobs:
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: release-artifacts-${{ needs.validate.outputs.version }}
           path: release-artifacts
@@ -509,7 +509,7 @@ jobs:
     if: ${{ !cancelled() && needs.release.result == 'success' && needs.validate.outputs.is-prerelease == 'false' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: main
