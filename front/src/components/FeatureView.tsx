@@ -12,7 +12,7 @@ interface FeatureViewProps {
 const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
   // Type guard to check if it's a feature
   const selectedItem = 'elements' in feature ? feature : null;
-  
+
   if (!selectedItem) {
     return (
       <div className="text-center text-[#858585] p-8">
@@ -22,11 +22,11 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
   }
 
   return (
-    <div className="font-mono">
+    <div className="font-mono w-full overflow-x-auto">
       {/* Feature File View */}
       <div className="bg-[#252526] rounded p-4 mb-4 border border-[#3e3e42]">
         <h3 className="text-sm font-bold mb-3 text-[#4ec9b0]">Feature File: {selectedItem.uri}</h3>
-        
+
         <div className="text-sm">
           {/* Feature header */}
           <div className="mb-4">
@@ -38,11 +38,11 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
               </div>
             )}
           </div>
-          
+
           {/* Background - display once at the feature level */}
           {(() => {
             const background = selectedItem.elements?.find(e => e.type === 'background');
-            
+
             return background && (
               <div className="mb-4 ml-2">
                 <div className="text-[#c586c0] mb-2">Background:</div>
@@ -50,7 +50,7 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
                   <div key={idx} className="ml-4 mb-2">
                     <div className="flex items-start">
                       {step.result && <StatusIcon status={step.result.status} size="sm" />}
-                      <div className="ml-2 flex-1">
+                      <div className="ml-2 min-w-0 flex-1">
                         <div>
                           <span className="text-[#c586c0]">{step.keyword}</span>
                           <span className="text-[#9cdcfe]">{step.name}</span>
@@ -61,7 +61,7 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
                           )}
                         </div>
                         {step.rows && (
-                          <div className="ml-2 mt-1">
+                          <div className="ml-2 mt-1 overflow-x-auto">
                             <table className="text-xs">
                               <tbody>
                                 {step.rows.map((row, rowIdx) => (
@@ -79,9 +79,9 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
                           </div>
                         )}
                         {step.result?.error_message && (
-                          <div className="mt-2 p-2 bg-[#1e1e1e] border border-[#f14c4c] rounded text-xs text-[#f48771]">
-                            <pre className="whitespace-pre-wrap">{step.result.error_message}</pre>
-                          </div>
+                          <pre className="mt-2 p-2 bg-[#1e1e1e] border border-[#f14c4c] rounded text-xs text-[#f48771] whitespace-pre">
+{step.result.error_message}
+                          </pre>
                         )}
                       </div>
                     </div>
@@ -90,7 +90,7 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
               </div>
             );
           })()}
-          
+
           {/* All Scenarios */}
           {selectedItem.elements?.filter(e => e.type === 'scenario').map((scenario, scenarioIdx) => (
             <div key={scenarioIdx} className="mb-6 ml-2">
@@ -100,19 +100,19 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
                   {scenario.tags.map(tag => tag.name).join(' ')}
                 </div>
               )}
-              
+
               {/* Scenario header */}
               <div className="mb-2">
                 <span className="text-[#c586c0]">Scenario: </span>
                 <span className="text-[#ce9178]">{scenario.name}</span>
               </div>
-              
+
               {/* Steps */}
               {scenario.steps?.map((step, idx) => (
                 <div key={idx} className="ml-4 mb-2">
                   <div className="flex items-start">
                     {step.result ? <StatusIcon status={step.result.status} size="sm" /> : <div className="w-3 h-3 mr-1"></div>}
-                    <div className="ml-2 flex-1">
+                    <div className="ml-2 min-w-0 flex-1">
                       <div>
                         <span className="text-[#c586c0]">{step.keyword || ''}</span>
                         <span className="text-[#9cdcfe]">{step.name || 'Unnamed step'}</span>
@@ -128,7 +128,7 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
                         )}
                       </div>
                       {step.rows && step.rows.length > 0 && (
-                        <div className="ml-2 mt-1">
+                        <div className="ml-2 mt-1 overflow-x-auto">
                           <table className="text-xs">
                             <tbody>
                               {step.rows.map((row, rowIdx) => (
@@ -146,9 +146,9 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
                         </div>
                       )}
                       {step.result?.error_message && (
-                        <div className="mt-2 p-2 bg-[#1e1e1e] border border-[#f14c4c] rounded text-xs text-[#f48771]">
-                          <pre className="whitespace-pre-wrap">{step.result.error_message}</pre>
-                        </div>
+                        <pre className="mt-2 p-2 bg-[#1e1e1e] border border-[#f14c4c] rounded text-xs text-[#f48771] whitespace-pre">
+{step.result.error_message}
+                        </pre>
                       )}
                     </div>
                   </div>
@@ -158,7 +158,7 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
           ))}
         </div>
       </div>
-      
+
       {/* Feature Statistics */}
       <div className="bg-[#252526] rounded p-4 border border-[#3e3e42]">
         <h3 className="text-sm font-bold mb-3 text-[#4ec9b0]">Feature Statistics</h3>
@@ -166,7 +166,7 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
           const scenarios = selectedItem.elements?.filter(e => e.type === 'scenario') || [];
           const backgroundSteps = selectedItem.elements?.find(e => e.type === 'background')?.steps || [];
           const allSteps = scenarios.flatMap(s => s.steps || []);
-          
+
           const scenarioStats = {
             total: scenarios.length,
             passed: scenarios.filter(s => getScenarioStatus(s) === 'passed').length,
@@ -174,7 +174,7 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
             pending: scenarios.filter(s => getScenarioStatus(s) === 'pending').length,
             skipped: scenarios.filter(s => getScenarioStatus(s) === 'skipped').length,
           };
-          
+
           const stepStats = {
             total: allSteps.length,
             passed: allSteps.filter(s => s.result?.status === 'passed').length,
@@ -182,11 +182,11 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
             pending: allSteps.filter(s => s.result?.status === 'pending').length,
             skipped: allSteps.filter(s => s.result?.status === 'skipped').length,
           };
-          
+
           const totalDuration = allSteps
             .filter(s => s.result?.duration)
             .reduce((sum, s) => sum + (s.result?.duration || 0), 0);
-          
+
           return (
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div>

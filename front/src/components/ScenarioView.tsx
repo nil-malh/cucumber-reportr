@@ -145,9 +145,11 @@ const ScenarioView: React.FC<ScenarioViewProps> = ({ scenario, reportData }) => 
                   </div>
                 )}
                 {step?.result?.error_message && (
-                  <pre className="mt-2 p-2 bg-[#1e1e1e] border border-[#f14c4c] rounded text-xs text-[#f48771] overflow-x-auto">
+                    <div className="mt-2 overflow-x-auto">
+    <pre className="p-2 bg-[#1e1e1e] border border-[#f14c4c] rounded text-xs text-[#f48771] whitespace-pre-wrap break-words inline-block min-w-full">
 {step.result.error_message}
-                  </pre>
+    </pre>
+                    </div>
                 )}
               </div>
             </div>

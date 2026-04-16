@@ -5,9 +5,6 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![codecov](https://codecov.io/gh/nil-malh/cucumber-reportr/branch/main/graph/badge.svg)](https://codecov.io/gh/nil-malh/cucumber-reportr)
 
-Frontend : [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=nil-malh_cucumber-reportr_frontend&metric=alert_status&token=5ce48f8ca1472765dc4c3b390df15e1fb6641062)](https://sonarcloud.io/summary/new_code?id=nil-malh_cucumber-reportr_frontend)
-
-Plugin : [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=nil-malh_cucumber-reportr_plugin&metric=alert_status&token=279612a77714d4a3f5e8da4dfd1dfb34f31a8531)](https://sonarcloud.io/summary/new_code?id=nil-malh_cucumber-reportr_plugin)
 
 A modern, interactive Cucumber reporter that generates beautiful HTML reports from Cucumber JSON output. Built with Java and React, it provides a VSCode-style interface for exploring test results with advanced filtering, analytics, and detailed step-by-step execution views.
 

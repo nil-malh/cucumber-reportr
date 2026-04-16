@@ -5,7 +5,6 @@ import type { CucumberReport } from '../types/cucumber';
 
 // Example usage:
 // loadCucumberReport(yourJsonData);
-
 function loadCucumberReport(jsonData: CucumberReport): boolean {
   if (typeof window !== 'undefined' && window.setCucumberReportData) {
     try {

@@ -45,9 +45,9 @@ const MainContent: React.FC<MainContentProps> = ({ activeTab, reportData }) => {
   };
 
   return (
-    <div className="h-full">
-      {renderContent()}
-    </div>
+      <div className="h-full">
+        {renderContent()}
+      </div>
   );
 };
 

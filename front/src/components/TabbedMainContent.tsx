@@ -25,7 +25,7 @@ const TabbedMainContent: React.FC<TabbedMainContentProps> = ({
   const activeTab = tabs.find(tab => tab.id === activeTabId);
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 min-w-0">
       {/* Tab Bar */}
       <TabBar
         tabs={tabs}
@@ -35,8 +35,7 @@ const TabbedMainContent: React.FC<TabbedMainContentProps> = ({
       />
 
       {/* Content Area */}
-      <div className="flex-1 bg-[#1e1e1e] overflow-y-auto min-h-0 p-4">
-        {activeTab ? (
+        <div className="flex-1 bg-[#1e1e1e] overflow-auto min-h-0 p-4">        {activeTab ? (
           activeTab.type === 'analytics' ? (
             <GlobalAnalytics reportData={reportData} />
           ) : (
