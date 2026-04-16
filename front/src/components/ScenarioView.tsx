@@ -23,9 +23,9 @@ const ScenarioView: React.FC<ScenarioViewProps> = ({ scenario, reportData }) => 
   }
 
   return (
-    <div className="font-mono">
+    <div className="font-mono min-w-0 w-full">
       {/* Gherkin Feature File View */}
-      <div className="bg-[#252526] rounded p-4 mb-4 border border-[#3e3e42]">
+      <div className="bg-[#252526] rounded p-4 mb-4 border border-[#3e3e42] overflow-x-auto">
         <h3 className="text-sm font-bold mb-3 text-[#4ec9b0]">Scenario View</h3>
         
         {/* Find the parent feature */}
@@ -108,25 +108,25 @@ const ScenarioView: React.FC<ScenarioViewProps> = ({ scenario, reportData }) => 
       
       <div className="space-y-3">
         {selectedItem.steps?.map((step, idx) => (
-          <div key={idx} className="bg-[#252526] rounded p-3 border border-[#3e3e42]">
-            <div className="flex items-start">
-              <span className="text-[#858585] mr-3 text-xs">{step.line}</span>
-              <div className="flex-1">
-                <div className="flex items-center">
+          <div key={idx} className="bg-[#252526] rounded p-3 border border-[#3e3e42] overflow-x-auto">
+            <div className="flex items-start min-w-0">
+              <span className="text-[#858585] mr-3 text-xs shrink-0">{step.line}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center flex-wrap gap-y-1">
                   <StatusIcon status={step?.result?.status || 'undefined'} size="md" />
-                  <span className="ml-2">
+                  <span className="ml-2 break-all">
                     <span className="text-[#c586c0]">{step.keyword}</span>
                     <span className="text-[#ce9178]">{step.name}</span>
                   </span>
                   {step?.result?.duration && step.result.duration > 0 && (
-                    <span className="ml-auto text-xs text-[#858585]">
+                    <span className="ml-auto text-xs text-[#858585] shrink-0">
                       {formatDuration(step.result.duration)}
                     </span>
                   )}
                 </div>
                 {/* Data table */}
                 {step.rows && step.rows.length > 0 && (
-                  <div className="mt-2 ml-6">
+                  <div className="mt-2 ml-6 overflow-x-auto">
                     <table className="text-xs bg-[#1e1e1e] rounded">
                       <tbody>
                         {step.rows.map((row, rowIdx) => (
@@ -145,7 +145,7 @@ const ScenarioView: React.FC<ScenarioViewProps> = ({ scenario, reportData }) => 
                   </div>
                 )}
                 {step?.result?.error_message && (
-                  <pre className="mt-2 p-2 bg-[#1e1e1e] border border-[#f14c4c] rounded text-xs text-[#f48771] overflow-x-auto">
+                  <pre className="mt-2 p-2 bg-[#1e1e1e] border border-[#f14c4c] rounded text-xs text-[#f48771] whitespace-pre overflow-x-auto">
 {step.result.error_message}
                   </pre>
                 )}

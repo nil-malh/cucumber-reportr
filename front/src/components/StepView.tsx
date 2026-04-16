@@ -28,7 +28,7 @@ const StepView: React.FC<StepViewProps> = ({ step }) => {
         </div>
         {/* Data table for individual step view */}
         {step.rows && step.rows.length > 0 && (
-          <div className="mt-3">
+          <div className="mt-3 overflow-x-auto">
             <table className="text-xs bg-[#1e1e1e] rounded">
               <tbody>
                 {step.rows.map((row, rowIdx) => (
@@ -47,7 +47,7 @@ const StepView: React.FC<StepViewProps> = ({ step }) => {
           </div>
         )}
         {step.result?.error_message && (
-          <pre className="mt-3 p-2 bg-[#1e1e1e] border border-[#f14c4c] rounded text-xs text-[#f48771] overflow-x-auto">
+          <pre className="mt-3 p-2 bg-[#1e1e1e] border border-[#f14c4c] rounded text-xs text-[#f48771] whitespace-pre overflow-x-auto">
 {step.result.error_message}
           </pre>
         )}
