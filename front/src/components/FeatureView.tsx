@@ -22,7 +22,7 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
   }
 
   return (
-    <div className="font-mono">
+    <div className="font-mono w-full overflow-x-auto">
       {/* Feature File View */}
       <div className="bg-[#252526] rounded p-4 mb-4 border border-[#3e3e42]">
         <h3 className="text-sm font-bold mb-3 text-[#4ec9b0]">Feature File: {selectedItem.uri}</h3>
@@ -50,7 +50,7 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
                   <div key={idx} className="ml-4 mb-2">
                     <div className="flex items-start">
                       {step.result && <StatusIcon status={step.result.status} size="sm" />}
-                      <div className="ml-2 flex-1">
+                      <div className="ml-2 min-w-0 flex-1">
                         <div>
                           <span className="text-[#c586c0]">{step.keyword}</span>
                           <span className="text-[#9cdcfe]">{step.name}</span>
@@ -61,7 +61,7 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
                           )}
                         </div>
                         {step.rows && (
-                          <div className="ml-2 mt-1">
+                          <div className="ml-2 mt-1 overflow-x-auto">
                             <table className="text-xs">
                               <tbody>
                                 {step.rows.map((row, rowIdx) => (
@@ -79,9 +79,9 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
                           </div>
                         )}
                         {step.result?.error_message && (
-                          <div className="mt-2 p-2 bg-[#1e1e1e] border border-[#f14c4c] rounded text-xs text-[#f48771]">
-                            <pre className="whitespace-pre-wrap">{step.result.error_message}</pre>
-                          </div>
+                          <pre className="mt-2 p-2 bg-[#1e1e1e] border border-[#f14c4c] rounded text-xs text-[#f48771] whitespace-pre overflow-x-auto">
+{step.result.error_message}
+                          </pre>
                         )}
                       </div>
                     </div>
@@ -112,7 +112,7 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
                 <div key={idx} className="ml-4 mb-2">
                   <div className="flex items-start">
                     {step.result ? <StatusIcon status={step.result.status} size="sm" /> : <div className="w-3 h-3 mr-1"></div>}
-                    <div className="ml-2 flex-1">
+                    <div className="ml-2 min-w-0 flex-1">
                       <div>
                         <span className="text-[#c586c0]">{step.keyword || ''}</span>
                         <span className="text-[#9cdcfe]">{step.name || 'Unnamed step'}</span>
@@ -128,7 +128,7 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
                         )}
                       </div>
                       {step.rows && step.rows.length > 0 && (
-                        <div className="ml-2 mt-1">
+                        <div className="ml-2 mt-1 overflow-x-auto">
                           <table className="text-xs">
                             <tbody>
                               {step.rows.map((row, rowIdx) => (
@@ -146,9 +146,9 @@ const FeatureView: React.FC<FeatureViewProps> = ({ feature }) => {
                         </div>
                       )}
                       {step.result?.error_message && (
-                        <div className="mt-2 p-2 bg-[#1e1e1e] border border-[#f14c4c] rounded text-xs text-[#f48771]">
-                          <pre className="whitespace-pre-wrap">{step.result.error_message}</pre>
-                        </div>
+                        <pre className="mt-2 p-2 bg-[#1e1e1e] border border-[#f14c4c] rounded text-xs text-[#f48771] whitespace-pre overflow-x-auto">
+{step.result.error_message}
+                        </pre>
                       )}
                     </div>
                   </div>
