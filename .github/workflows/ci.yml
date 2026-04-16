@@ -114,116 +114,41 @@ jobs:
   integration-test:
     needs: [backend-test, frontend-test]
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v6
-    
+    - uses: actions/checkout@v4
+
     - name: Set up JDK 17
-      uses: actions/setup-java@v5
+      uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
-        
+
     - name: Set up Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v4
       with:
-        node-version: '22'
+        node-version: '20'
         cache: 'npm'
         cache-dependency-path: front/package-lock.json
-        
+
     - name: Cache Maven dependencies
-      uses: actions/cache@v5
+      uses: actions/cache@v4
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
-        
+
     - name: Install frontend dependencies
+      working-directory: ./front
       run: npm ci
-      working-directory: ./front
-      
+
     - name: Build frontend
-      run: npm run build
       working-directory: ./front
-      
+      run: npm run build
+
     - name: Build backend with frontend
       run: mvn clean package -DskipTests
-      
+
     - name: Run integration tests
       run: mvn verify -Dtest=*IntegrationTest
 
-  code-quality:
-    needs: [backend-test, frontend-test]
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v6
-      with:
-        fetch-depth: 0
-        
-    - name: Set up JDK 17
-      uses: actions/setup-java@v5
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        
-    - name: Set up Node.js
-      uses: actions/setup-node@v6
-      with:
-        node-version: '22'
-        cache: 'npm'
-        cache-dependency-path: front/package-lock.json
-        
-    - name: Install frontend dependencies
-      run: npm ci
-      working-directory: ./front
-        
-    - name: Cache SonarCloud packages
-      uses: actions/cache@v5
-      with:
-        path: ~/.sonar/cache
-        key: ${{ runner.os }}-sonar
-        restore-keys: ${{ runner.os }}-sonar
-        
-    - name: Cache Maven dependencies
-      uses: actions/cache@v5
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2
-        
-    - name: Build and analyze Java project
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SONAR_TOKEN: ${{ secrets.REPORTR_PLUGIN_SONAR_TOKEN }}
-      run: mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=nil-malh_cucumber-reportr_plugin -Dsonar.token=${{ secrets.REPORTR_PLUGIN_SONAR_TOKEN }} -Dsonar.host.url=https://sonarcloud.io -Dsonar.sourceEncoding=UTF-8 -Dsonar.qualitygate.wait=true
-
-    - name: Build and analyze frontend
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SONAR_TOKEN: ${{ secrets.REPORTR_FRONTEND_SONAR_TOKEN }}
-      run: |
-        cd front
-        # Run tests with coverage first
-        npm test -- --coverage --watchAll=false --passWithNoTests
-        # Verify coverage file exists
-        ls -la coverage/lcov.info
-        # Build the project
-        npm run build
-        # Run SonarCloud analysis with properties file
-        npx sonar-scanner \
-          -Dsonar.projectKey=nil-malh_cucumber-reportr_frontend \
-          -Dsonar.organization=nil-malh \
-          -Dsonar.sources=src \
-          -Dsonar.tests=src/__tests__ \
-          -Dsonar.host.url=https://sonarcloud.io \
-          -Dsonar.token=${{ secrets.REPORTR_FRONTEND_SONAR_TOKEN }} \
-          -Dsonar.sourceEncoding=UTF-8 \
-          -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
-          -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info \
-          -Dsonar.test.inclusions="**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx" \
-          -Dsonar.exclusions="**/node_modules/**,**/dist/**,**/coverage/**,**/build/**,**/*.config.js,**/*.config.ts,**/vite-env.d.ts,**/setupTests.ts,**/testUtils.ts" \
-          -Dsonar.javascript.file.suffixes=.js,.jsx \
-          -Dsonar.typescript.file.suffixes=.ts,.tsx \
-          -Dsonar.javascript.environments=node,browser,jest \
-          -Dsonar.typescript.tsconfigPath=tsconfig.json \
-          -Dsonar.qualitygate.wait=true

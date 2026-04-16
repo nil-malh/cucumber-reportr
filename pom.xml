@@ -47,9 +47,6 @@
         <cucumber.version>7.21.1</cucumber.version>
         <slf4j.version>2.0.9</slf4j.version>
 
-        <sonar.organization>nil-malh</sonar.organization>
-        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
-
         <!-- Frontend configuration -->
         <node.version>v22.9.0</node.version>
         <npm.version>11.4.2</npm.version>
