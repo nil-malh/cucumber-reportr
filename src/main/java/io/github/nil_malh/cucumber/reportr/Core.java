@@ -2,6 +2,7 @@ package io.github.nil_malh.cucumber.reportr;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.cucumber.core.plugin.JsonFormatter;
+import io.cucumber.plugin.ConcurrentEventListener;
 import io.cucumber.plugin.EventListener;
 import io.cucumber.plugin.Plugin;
 import io.cucumber.plugin.event.EventHandler;
@@ -15,12 +16,17 @@ import java.util.stream.Collectors;
 
 import static java.io.File.createTempFile;
 
-public class Core implements Plugin, EventListener {
+public class Core implements Plugin, ConcurrentEventListener, EventListener {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(Core.class);
 
     private final File outputDir;
     private final File jsonFile;
-    private final EventListener delegateJsonEventListener;
+    private final ConcurrentEventListener delegateJsonEventListener;
+    private final OutputStream jsonOutputStream;
+    /** True when report generation is triggered via the stream close hook (stream-based constructors). */
+    private final boolean reportTriggeredOnClose;
+    /** The FilterOutputStream wrapping jsonOutputStream, exposed package-privately for testing. */
+    OutputStream triggeringStream;
 
 
     public Core() throws Exception {
@@ -31,20 +37,66 @@ public class Core implements Plugin, EventListener {
         this(outputDir, createTempFileDeletedOnExit());
     }
 
-    protected Core(File outputDir, final File jsonFile) {
-        this(outputDir, jsonFile, createJsonEventListener(jsonFile));
+    protected Core(File outputDir, final File jsonFile) throws FileNotFoundException {
+        FileOutputStream fos = new FileOutputStream(jsonFile);
+        try {
+            this.outputDir = outputDir;
+            this.jsonFile = jsonFile;
+            this.jsonOutputStream = fos;
+            this.reportTriggeredOnClose = true;
+            LOGGER.info("Writing JSON file to {}", jsonFile.getAbsolutePath());
+            OutputStream ts = new FilterOutputStream(fos) {
+                @Override
+                public void close() throws IOException {
+                    super.close();
+                    LOGGER.info("JsonFormatter closed output stream, generating report...");
+                    generatePrettyReport(jsonFile, outputDir);
+                }
+            };
+            triggeringStream = ts;
+            this.delegateJsonEventListener = new JsonFormatter(ts);
+        } catch (RuntimeException e) {
+            try {
+                fos.close();
+            } catch (IOException ignored) {
+            }
+            throw e;
+        }
     }
 
-    protected Core(File outputDir, File jsonFile, EventListener delegateJsonEventListener) {
+    protected Core(File outputDir, File jsonFile, OutputStream jsonOutputStream) {
         this.outputDir = outputDir;
         this.jsonFile = jsonFile;
+        this.jsonOutputStream = jsonOutputStream;
+        this.reportTriggeredOnClose = true;
+        LOGGER.info("Writing JSON file to {}", jsonFile.getAbsolutePath());
+        // Wrap the stream so that when JsonFormatter calls close(), we trigger report generation
+        OutputStream ts = new FilterOutputStream(jsonOutputStream) {
+            @Override
+            public void close() throws IOException {
+                super.close();
+                LOGGER.info("JsonFormatter closed output stream, generating report...");
+                generatePrettyReport(jsonFile, outputDir);
+            }
+        };
+        triggeringStream = ts;
+        this.delegateJsonEventListener = new JsonFormatter(ts);
+    }
+
+    /** @deprecated use {@link #Core(File, File, OutputStream)} */
+    protected Core(File outputDir, File jsonFile, ConcurrentEventListener delegateJsonEventListener) {
+        this.outputDir = outputDir;
+        this.jsonFile = jsonFile;
+        this.jsonOutputStream = null;
+        this.reportTriggeredOnClose = false;
         this.delegateJsonEventListener = delegateJsonEventListener;
     }
 
 
-    protected static EventListener createJsonEventListener(File jsonFile) {
+    protected static ConcurrentEventListener createJsonEventListener(File jsonFile) {
         try {
             OutputStream outputStream = new FileOutputStream(jsonFile);
+            LOGGER.info("Writing JSON file to {}", jsonFile.getAbsolutePath());
             return new JsonFormatter(outputStream);
         } catch (FileNotFoundException e) {
             // Should not happen, as path is created programmatically in this class
@@ -54,18 +106,21 @@ public class Core implements Plugin, EventListener {
 
     protected static File createTempFileDeletedOnExit() throws IOException {
         File jsonFile = createTempFile("cucumber", ".json");
-        jsonFile.deleteOnExit();
+        //jsonFile.deleteOnExit();
         return jsonFile;
     }
 
     @Override
     public void setEventPublisher(EventPublisher eventPublisher) {
         delegateJsonEventListener.setEventPublisher(eventPublisher);
-        eventPublisher.registerHandlerFor(TestRunFinished.class, generatePrettyReport(jsonFile));
-    }
-
-    protected EventHandler<TestRunFinished> generatePrettyReport(File jsonFile) {
-        return unused -> generatePrettyReport(jsonFile, outputDir);
+        if (!reportTriggeredOnClose) {
+            // Deprecated constructor path: no stream hook, so register handler to generate report on TestRunFinished
+            eventPublisher.registerHandlerFor(TestRunFinished.class, unused -> generatePrettyReport(jsonFile, outputDir));
+        } else {
+            // Stream-based path: report is generated when JsonFormatter closes the stream.
+            // Still register a no-op handler so the event wiring contract is satisfied.
+            eventPublisher.registerHandlerFor(TestRunFinished.class, unused -> {});
+        }
     }
 
     public static void generatePrettyReport(File jsonFile, File outputDir) {
