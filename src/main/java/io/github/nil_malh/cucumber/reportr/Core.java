@@ -25,6 +25,8 @@ public class Core implements Plugin, ConcurrentEventListener, EventListener {
     private final OutputStream jsonOutputStream;
     /** True when report generation is triggered via the stream close hook (stream-based constructors). */
     private final boolean reportTriggeredOnClose;
+    /** The FilterOutputStream wrapping jsonOutputStream, exposed package-privately for testing. */
+    OutputStream triggeringStream;
 
 
     public Core() throws Exception {
@@ -43,7 +45,7 @@ public class Core implements Plugin, ConcurrentEventListener, EventListener {
             this.jsonOutputStream = fos;
             this.reportTriggeredOnClose = true;
             LOGGER.info("Writing JSON file to {}", jsonFile.getAbsolutePath());
-            OutputStream triggeringStream = new FilterOutputStream(fos) {
+            OutputStream ts = new FilterOutputStream(fos) {
                 @Override
                 public void close() throws IOException {
                     super.close();
@@ -51,7 +53,8 @@ public class Core implements Plugin, ConcurrentEventListener, EventListener {
                     generatePrettyReport(jsonFile, outputDir);
                 }
             };
-            this.delegateJsonEventListener = new JsonFormatter(triggeringStream);
+            triggeringStream = ts;
+            this.delegateJsonEventListener = new JsonFormatter(ts);
         } catch (RuntimeException e) {
             try {
                 fos.close();
@@ -68,7 +71,7 @@ public class Core implements Plugin, ConcurrentEventListener, EventListener {
         this.reportTriggeredOnClose = true;
         LOGGER.info("Writing JSON file to {}", jsonFile.getAbsolutePath());
         // Wrap the stream so that when JsonFormatter calls close(), we trigger report generation
-        OutputStream triggeringStream = new FilterOutputStream(jsonOutputStream) {
+        OutputStream ts = new FilterOutputStream(jsonOutputStream) {
             @Override
             public void close() throws IOException {
                 super.close();
@@ -76,7 +79,8 @@ public class Core implements Plugin, ConcurrentEventListener, EventListener {
                 generatePrettyReport(jsonFile, outputDir);
             }
         };
-        this.delegateJsonEventListener = new JsonFormatter(triggeringStream);
+        triggeringStream = ts;
+        this.delegateJsonEventListener = new JsonFormatter(ts);
     }
 
     /** @deprecated use {@link #Core(File, File, OutputStream)} */
