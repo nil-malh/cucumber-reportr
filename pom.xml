@@ -6,7 +6,7 @@
 
     <groupId>io.github.nil-malh</groupId>
     <artifactId>cucumber-reportr</artifactId>
-    <version>1.0.3-SNAPSHOT</version>
+    <version>1.3.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Cucumber Reportr</name>
@@ -44,7 +44,7 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <cucumber.version>7.21.1</cucumber.version>
+        <cucumber.version>7.34.3</cucumber.version>
         <slf4j.version>2.0.9</slf4j.version>
 
         <!-- Frontend configuration -->
@@ -57,12 +57,12 @@
         <dependency>
             <groupId>io.cucumber</groupId>
             <artifactId>cucumber-plugin</artifactId>
-            <version>7.34.3</version>
+            <version>${cucumber.version}</version>
         </dependency>
         <dependency>
             <groupId>io.cucumber</groupId>
             <artifactId>cucumber-core</artifactId>
-            <version>7.34.3</version>
+            <version>${cucumber.version}</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>

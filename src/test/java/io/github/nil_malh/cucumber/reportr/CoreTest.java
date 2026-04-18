@@ -1,5 +1,6 @@
 package io.github.nil_malh.cucumber.reportr;
 
+import io.cucumber.plugin.ConcurrentEventListener;
 import io.cucumber.plugin.EventListener;
 import io.cucumber.plugin.event.EventPublisher;
 import io.cucumber.plugin.event.TestRunFinished;
@@ -30,7 +31,7 @@ class CoreTest {
     private EventPublisher eventPublisher;
 
     @Mock
-    private EventListener mockEventListener;
+    private ConcurrentEventListener mockEventListener;
 
     @TempDir
     Path tempDir;
@@ -132,7 +133,7 @@ class CoreTest {
         File tempJsonFile = tempDir.resolve("test.json").toFile();
 
         // When
-        EventListener listener = Core.createJsonEventListener(tempJsonFile);
+        ConcurrentEventListener listener = Core.createJsonEventListener(tempJsonFile);
 
         // Then
         assertThat(listener).isNotNull();
