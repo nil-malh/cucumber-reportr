@@ -136,13 +136,14 @@ class CoreTest {
         File testOutputDir = tempDir.resolve("stream-close-output").toFile();
         // Use a separate sink file for the stream; jsonFile already has valid JSON content
         File streamSink = tempDir.resolve("stream-sink.json").toFile();
-        OutputStream fos = new FileOutputStream(streamSink);
-        Core core = new Core(testOutputDir, jsonFile, fos);
-        // When - close the FilterOutputStream wrapper (simulates JsonFormatter finishing)
-        core.triggeringStream.close();
-        // Then - report should have been generated from jsonFile
-        File reportFile = new File(testOutputDir, "cucumber-pretty-report.html");
-        assertThat(reportFile).exists();
+        try (OutputStream fos = new FileOutputStream(streamSink)) {
+            Core core = new Core(testOutputDir, jsonFile, fos);
+            // When - close the FilterOutputStream wrapper (simulates JsonFormatter finishing)
+            core.triggeringStream.close();
+            // Then - report should have been generated from jsonFile
+            File reportFile = new File(testOutputDir, "cucumber-pretty-report.html");
+            assertThat(reportFile).exists();
+        }
     }
     @Test
     @DisplayName("Should create JSON event listener successfully")
