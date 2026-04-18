@@ -36,7 +36,29 @@ public class Core implements Plugin, ConcurrentEventListener, EventListener {
     }
 
     protected Core(File outputDir, final File jsonFile) throws FileNotFoundException {
-        this(outputDir, jsonFile, new FileOutputStream(jsonFile));
+        FileOutputStream fos = new FileOutputStream(jsonFile);
+        try {
+            this.outputDir = outputDir;
+            this.jsonFile = jsonFile;
+            this.jsonOutputStream = fos;
+            this.reportTriggeredOnClose = true;
+            LOGGER.info("Writing JSON file to {}", jsonFile.getAbsolutePath());
+            OutputStream triggeringStream = new FilterOutputStream(fos) {
+                @Override
+                public void close() throws IOException {
+                    super.close();
+                    LOGGER.info("JsonFormatter closed output stream, generating report...");
+                    generatePrettyReport(jsonFile, outputDir);
+                }
+            };
+            this.delegateJsonEventListener = new JsonFormatter(triggeringStream);
+        } catch (RuntimeException e) {
+            try {
+                fos.close();
+            } catch (IOException ignored) {
+            }
+            throw e;
+        }
     }
 
     protected Core(File outputDir, File jsonFile, OutputStream jsonOutputStream) {
