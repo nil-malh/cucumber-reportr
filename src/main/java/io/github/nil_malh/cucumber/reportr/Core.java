@@ -5,7 +5,6 @@ import io.cucumber.core.plugin.JsonFormatter;
 import io.cucumber.plugin.ConcurrentEventListener;
 import io.cucumber.plugin.EventListener;
 import io.cucumber.plugin.Plugin;
-import io.cucumber.plugin.event.EventHandler;
 import io.cucumber.plugin.event.EventPublisher;
 import io.cucumber.plugin.event.TestRunFinished;
 
@@ -22,12 +21,10 @@ public class Core implements Plugin, ConcurrentEventListener, EventListener {
     private final File outputDir;
     private final File jsonFile;
     private final ConcurrentEventListener delegateJsonEventListener;
-    private final OutputStream jsonOutputStream;
-    /** True when report generation is triggered via the stream close hook (stream-based constructors). */
+    /** True when report generation is triggered via the stream close hook. */
     private final boolean reportTriggeredOnClose;
     /** The FilterOutputStream wrapping jsonOutputStream, exposed package-privately for testing. */
     OutputStream triggeringStream;
-
 
     public Core() throws Exception {
         this(new File("target" + File.separator + "cucumber"));
@@ -38,40 +35,15 @@ public class Core implements Plugin, ConcurrentEventListener, EventListener {
     }
 
     protected Core(File outputDir, final File jsonFile) throws FileNotFoundException {
-        FileOutputStream fos = new FileOutputStream(jsonFile);
-        try {
-            this.outputDir = outputDir;
-            this.jsonFile = jsonFile;
-            this.jsonOutputStream = fos;
-            this.reportTriggeredOnClose = true;
-            LOGGER.info("Writing JSON file to {}", jsonFile.getAbsolutePath());
-            OutputStream ts = new FilterOutputStream(fos) {
-                @Override
-                public void close() throws IOException {
-                    super.close();
-                    LOGGER.info("JsonFormatter closed output stream, generating report...");
-                    generatePrettyReport(jsonFile, outputDir);
-                }
-            };
-            triggeringStream = ts;
-            this.delegateJsonEventListener = new JsonFormatter(ts);
-        } catch (RuntimeException e) {
-            try {
-                fos.close();
-            } catch (IOException ignored) {
-            }
-            throw e;
-        }
+        this(outputDir, jsonFile, new FileOutputStream(jsonFile));
     }
 
     protected Core(File outputDir, File jsonFile, OutputStream jsonOutputStream) {
         this.outputDir = outputDir;
         this.jsonFile = jsonFile;
-        this.jsonOutputStream = jsonOutputStream;
         this.reportTriggeredOnClose = true;
         LOGGER.info("Writing JSON file to {}", jsonFile.getAbsolutePath());
-        // Wrap the stream so that when JsonFormatter calls close(), we trigger report generation
-        OutputStream ts = new FilterOutputStream(jsonOutputStream) {
+        this.triggeringStream = new FilterOutputStream(jsonOutputStream) {
             @Override
             public void close() throws IOException {
                 super.close();
@@ -79,46 +51,40 @@ public class Core implements Plugin, ConcurrentEventListener, EventListener {
                 generatePrettyReport(jsonFile, outputDir);
             }
         };
-        triggeringStream = ts;
-        this.delegateJsonEventListener = new JsonFormatter(ts);
+        this.delegateJsonEventListener = new JsonFormatter(triggeringStream);
     }
 
     /** @deprecated use {@link #Core(File, File, OutputStream)} */
+    @Deprecated
     protected Core(File outputDir, File jsonFile, ConcurrentEventListener delegateJsonEventListener) {
         this.outputDir = outputDir;
         this.jsonFile = jsonFile;
-        this.jsonOutputStream = null;
         this.reportTriggeredOnClose = false;
+        this.triggeringStream = null;
         this.delegateJsonEventListener = delegateJsonEventListener;
     }
 
-
     protected static ConcurrentEventListener createJsonEventListener(File jsonFile) {
         try {
-            OutputStream outputStream = new FileOutputStream(jsonFile);
             LOGGER.info("Writing JSON file to {}", jsonFile.getAbsolutePath());
-            return new JsonFormatter(outputStream);
+            return new JsonFormatter(new FileOutputStream(jsonFile));
         } catch (FileNotFoundException e) {
-            // Should not happen, as path is created programmatically in this class
             throw new UncheckedIOException(e);
         }
     }
 
     protected static File createTempFileDeletedOnExit() throws IOException {
-        File jsonFile = createTempFile("cucumber", ".json");
-        //jsonFile.deleteOnExit();
-        return jsonFile;
+        return createTempFile("cucumber", ".json");
     }
 
     @Override
     public void setEventPublisher(EventPublisher eventPublisher) {
         delegateJsonEventListener.setEventPublisher(eventPublisher);
         if (!reportTriggeredOnClose) {
-            // Deprecated constructor path: no stream hook, so register handler to generate report on TestRunFinished
+            // Deprecated constructor: generate report on TestRunFinished
             eventPublisher.registerHandlerFor(TestRunFinished.class, unused -> generatePrettyReport(jsonFile, outputDir));
         } else {
-            // Stream-based path: report is generated when JsonFormatter closes the stream.
-            // Still register a no-op handler so the event wiring contract is satisfied.
+            // Stream-based: report triggers on stream close; register no-op to satisfy event wiring contract
             eventPublisher.registerHandlerFor(TestRunFinished.class, unused -> {});
         }
     }
@@ -130,16 +96,15 @@ public class Core implements Plugin, ConcurrentEventListener, EventListener {
                 return;
             }
 
-            // 1. Read JSON report data and sanitize it with Jackson
+            // 1. Read and sanitize JSON report data
             String jsonReport = Files.readString(jsonFile.toPath(), StandardCharsets.UTF_8);
             ObjectMapper mapper = new ObjectMapper();
-            Object jsonObject = mapper.readValue(jsonReport, Object.class);
-            String sanitizedJsonReport = mapper.writeValueAsString(jsonObject);
+            String sanitizedJson = mapper.writeValueAsString(mapper.readValue(jsonReport, Object.class));
 
-            // 2. Read HTML template from resources
+            // 2. Read HTML template
             InputStream templateStream = Core.class.getResourceAsStream("/index.html");
             if (templateStream == null) {
-                LOGGER.error("Could not find report template in resources: /index.html. Make sure 'front/dist/index.html' is copied to your JAR resources.");
+                LOGGER.error("Could not find report template in resources: /index.html.");
                 return;
             }
             String htmlTemplate;
@@ -147,24 +112,17 @@ public class Core implements Plugin, ConcurrentEventListener, EventListener {
                 htmlTemplate = reader.lines().collect(Collectors.joining(System.lineSeparator()));
             }
 
-            // 3. Inject JSON data into the template
-            String finalHtml = htmlTemplate.replace(
-                "/* CUCUMBER_REPORT_DATA_PLACEHOLDER */",
-                sanitizedJsonReport
-            );
-
-            // Check if replacement happened
+            // 3. Inject JSON into template
+            String finalHtml = htmlTemplate.replace("/* CUCUMBER_REPORT_DATA_PLACEHOLDER */", sanitizedJson);
             if (finalHtml.equals(htmlTemplate)) {
-                LOGGER.error("Could not find placeholder '/* CUCUMBER_REPORT_DATA_PLACEHOLDER */' in the template. Report generation failed.");
+                LOGGER.error("Placeholder '/* CUCUMBER_REPORT_DATA_PLACEHOLDER */' not found in template.");
                 return;
             }
 
-            // 4. Write the final report
-            if (!outputDir.exists()) {
-                if (!outputDir.mkdirs()) {
-                    LOGGER.error("Could not create output directory: {}", outputDir.getAbsolutePath());
-                    return;
-                }
+            // 4. Write report
+            if (!outputDir.exists() && !outputDir.mkdirs()) {
+                LOGGER.error("Could not create output directory: {}", outputDir.getAbsolutePath());
+                return;
             }
             File reportFile = new File(outputDir, "cucumber-pretty-report.html");
             try (Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(reportFile), StandardCharsets.UTF_8))) {
