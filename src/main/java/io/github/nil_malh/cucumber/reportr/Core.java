@@ -2,9 +2,9 @@ package io.github.nil_malh.cucumber.reportr;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.cucumber.core.plugin.JsonFormatter;
+import io.cucumber.plugin.ConcurrentEventListener;
 import io.cucumber.plugin.EventListener;
 import io.cucumber.plugin.Plugin;
-import io.cucumber.plugin.event.EventHandler;
 import io.cucumber.plugin.event.EventPublisher;
 import io.cucumber.plugin.event.TestRunFinished;
 
@@ -15,13 +15,16 @@ import java.util.stream.Collectors;
 
 import static java.io.File.createTempFile;
 
-public class Core implements Plugin, EventListener {
+public class Core implements Plugin, ConcurrentEventListener, EventListener {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(Core.class);
 
     private final File outputDir;
     private final File jsonFile;
-    private final EventListener delegateJsonEventListener;
-
+    private final ConcurrentEventListener delegateJsonEventListener;
+    /** True when report generation is triggered via the stream close hook. */
+    private final boolean reportTriggeredOnClose;
+    /** The FilterOutputStream wrapping jsonOutputStream, exposed package-privately for testing. */
+    OutputStream triggeringStream;
 
     public Core() throws Exception {
         this(new File("target" + File.separator + "cucumber"));
@@ -31,41 +34,59 @@ public class Core implements Plugin, EventListener {
         this(outputDir, createTempFileDeletedOnExit());
     }
 
-    protected Core(File outputDir, final File jsonFile) {
-        this(outputDir, jsonFile, createJsonEventListener(jsonFile));
+    protected Core(File outputDir, final File jsonFile) throws FileNotFoundException {
+        this(outputDir, jsonFile, new FileOutputStream(jsonFile));
     }
 
-    protected Core(File outputDir, File jsonFile, EventListener delegateJsonEventListener) {
+    protected Core(File outputDir, File jsonFile, OutputStream jsonOutputStream) {
         this.outputDir = outputDir;
         this.jsonFile = jsonFile;
+        this.reportTriggeredOnClose = true;
+        LOGGER.info("Writing JSON file to {}", jsonFile.getAbsolutePath());
+        this.triggeringStream = new FilterOutputStream(jsonOutputStream) {
+            @Override
+            public void close() throws IOException {
+                super.close();
+                LOGGER.info("JsonFormatter closed output stream, generating report...");
+                generatePrettyReport(jsonFile, outputDir);
+            }
+        };
+        this.delegateJsonEventListener = new JsonFormatter(triggeringStream);
+    }
+
+    /** @deprecated use {@link #Core(File, File, OutputStream)} */
+    @Deprecated
+    protected Core(File outputDir, File jsonFile, ConcurrentEventListener delegateJsonEventListener) {
+        this.outputDir = outputDir;
+        this.jsonFile = jsonFile;
+        this.reportTriggeredOnClose = false;
+        this.triggeringStream = null;
         this.delegateJsonEventListener = delegateJsonEventListener;
     }
 
-
-    protected static EventListener createJsonEventListener(File jsonFile) {
+    protected static ConcurrentEventListener createJsonEventListener(File jsonFile) {
         try {
-            OutputStream outputStream = new FileOutputStream(jsonFile);
-            return new JsonFormatter(outputStream);
+            LOGGER.info("Writing JSON file to {}", jsonFile.getAbsolutePath());
+            return new JsonFormatter(new FileOutputStream(jsonFile));
         } catch (FileNotFoundException e) {
-            // Should not happen, as path is created programmatically in this class
             throw new UncheckedIOException(e);
         }
     }
 
     protected static File createTempFileDeletedOnExit() throws IOException {
-        File jsonFile = createTempFile("cucumber", ".json");
-        jsonFile.deleteOnExit();
-        return jsonFile;
+        return createTempFile("cucumber", ".json");
     }
 
     @Override
     public void setEventPublisher(EventPublisher eventPublisher) {
         delegateJsonEventListener.setEventPublisher(eventPublisher);
-        eventPublisher.registerHandlerFor(TestRunFinished.class, generatePrettyReport(jsonFile));
-    }
-
-    protected EventHandler<TestRunFinished> generatePrettyReport(File jsonFile) {
-        return unused -> generatePrettyReport(jsonFile, outputDir);
+        if (!reportTriggeredOnClose) {
+            // Deprecated constructor: generate report on TestRunFinished
+            eventPublisher.registerHandlerFor(TestRunFinished.class, unused -> generatePrettyReport(jsonFile, outputDir));
+        } else {
+            // Stream-based: report triggers on stream close; register no-op to satisfy event wiring contract
+            eventPublisher.registerHandlerFor(TestRunFinished.class, unused -> {});
+        }
     }
 
     public static void generatePrettyReport(File jsonFile, File outputDir) {
@@ -75,16 +96,15 @@ public class Core implements Plugin, EventListener {
                 return;
             }
 
-            // 1. Read JSON report data and sanitize it with Jackson
+            // 1. Read and sanitize JSON report data
             String jsonReport = Files.readString(jsonFile.toPath(), StandardCharsets.UTF_8);
             ObjectMapper mapper = new ObjectMapper();
-            Object jsonObject = mapper.readValue(jsonReport, Object.class);
-            String sanitizedJsonReport = mapper.writeValueAsString(jsonObject);
+            String sanitizedJson = mapper.writeValueAsString(mapper.readValue(jsonReport, Object.class));
 
-            // 2. Read HTML template from resources
+            // 2. Read HTML template
             InputStream templateStream = Core.class.getResourceAsStream("/index.html");
             if (templateStream == null) {
-                LOGGER.error("Could not find report template in resources: /index.html. Make sure 'front/dist/index.html' is copied to your JAR resources.");
+                LOGGER.error("Could not find report template in resources: /index.html.");
                 return;
             }
             String htmlTemplate;
@@ -92,24 +112,17 @@ public class Core implements Plugin, EventListener {
                 htmlTemplate = reader.lines().collect(Collectors.joining(System.lineSeparator()));
             }
 
-            // 3. Inject JSON data into the template
-            String finalHtml = htmlTemplate.replace(
-                "/* CUCUMBER_REPORT_DATA_PLACEHOLDER */",
-                sanitizedJsonReport
-            );
-
-            // Check if replacement happened
+            // 3. Inject JSON into template
+            String finalHtml = htmlTemplate.replace("/* CUCUMBER_REPORT_DATA_PLACEHOLDER */", sanitizedJson);
             if (finalHtml.equals(htmlTemplate)) {
-                LOGGER.error("Could not find placeholder '/* CUCUMBER_REPORT_DATA_PLACEHOLDER */' in the template. Report generation failed.");
+                LOGGER.error("Placeholder '/* CUCUMBER_REPORT_DATA_PLACEHOLDER */' not found in template.");
                 return;
             }
 
-            // 4. Write the final report
-            if (!outputDir.exists()) {
-                if (!outputDir.mkdirs()) {
-                    LOGGER.error("Could not create output directory: {}", outputDir.getAbsolutePath());
-                    return;
-                }
+            // 4. Write report
+            if (!outputDir.exists() && !outputDir.mkdirs()) {
+                LOGGER.error("Could not create output directory: {}", outputDir.getAbsolutePath());
+                return;
             }
             File reportFile = new File(outputDir, "cucumber-pretty-report.html");
             try (Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(reportFile), StandardCharsets.UTF_8))) {
