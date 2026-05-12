@@ -34,7 +34,7 @@
     "globals": "^17.5.0",
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^29.7.0",
-    "postcss": "^8.5.5",
+    "postcss": "^8.5.14",
     "tailwindcss": "^4.1.10",
     "ts-jest": "^29.2.5",
     "typescript": "^5.7.3",
