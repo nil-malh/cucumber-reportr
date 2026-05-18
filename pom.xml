@@ -45,7 +45,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <cucumber.version>7.34.3</cucumber.version>
-        <slf4j.version>2.0.9</slf4j.version>
+        <slf4j.version>2.0.18</slf4j.version>
 
         <!-- Frontend configuration -->
         <node.version>v22.9.0</node.version>
