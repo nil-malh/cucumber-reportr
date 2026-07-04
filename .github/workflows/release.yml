@@ -40,7 +40,7 @@ jobs:
       changelog: ${{ steps.changelog.outputs.changelog }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           
@@ -190,7 +190,7 @@ jobs:
       artifacts: ${{ steps.artifacts.outputs.paths }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -213,7 +213,7 @@ jobs:
           cache-dependency-path: front/package-lock.json
 
       - name: Cache Maven dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
@@ -321,7 +321,7 @@ jobs:
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v5
@@ -335,7 +335,7 @@ jobs:
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
 
       - name: Cache Maven dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
@@ -376,7 +376,7 @@ jobs:
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Download build artifacts
         uses: actions/download-artifact@v8
@@ -509,7 +509,7 @@ jobs:
     if: ${{ !cancelled() && needs.release.result == 'success' && needs.validate.outputs.is-prerelease == 'false' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: main
