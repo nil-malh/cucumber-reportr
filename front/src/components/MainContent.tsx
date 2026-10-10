@@ -5,7 +5,7 @@ import { FileText } from 'lucide-react';
 import FeatureView from './FeatureView';
 import ScenarioView from './ScenarioView';
 import StepView from './StepView';
-import type { TabData, CucumberReport, CucumberStep } from '../types/cucumber';
+import type { TabData, CucumberReport, CucumberStep, CucumberFeature, CucumberScenario } from '../types/cucumber';
 
 interface MainContentProps {
   activeTab: TabData;
@@ -27,11 +27,11 @@ const MainContent: React.FC<MainContentProps> = ({ activeTab, reportData }) => {
   // Wrap content in a container that ensures proper height constraints
   const renderContent = (): React.ReactElement => {
     if (activeTab.type === 'feature' && activeTab.data) {
-      return <FeatureView feature={activeTab.data} />;
+      return <FeatureView feature={activeTab.data as CucumberFeature} />;
     }
 
     if (activeTab.type === 'scenario' && activeTab.data) {
-      return <ScenarioView scenario={activeTab.data} reportData={reportData} />;
+      return <ScenarioView scenario={activeTab.data as CucumberScenario} reportData={reportData} />;
     }
 
     if (activeTab.type === 'step' && activeTab.data) {

@@ -92,7 +92,7 @@ const FolderTree: React.FC<FolderTreeProps> = ({
                       className={`flex items-center px-2 py-1 hover:bg-[#2a2d2e] cursor-pointer ${
                         activeTabId === `feature-${feature.id}` ? 'bg-[#094771]' : ''
                       }`}
-                      onClick={() => onTabOpen({...feature, type: 'feature'})}
+                      onClick={() => onTabOpen({...feature, type: 'feature'} as CucumberFeature)}
                       title={feature.uri}
                     >
                       <div
@@ -128,7 +128,7 @@ const FolderTree: React.FC<FolderTreeProps> = ({
                             className={`flex items-center px-6 py-1 hover:bg-[#2a2d2e] cursor-pointer ${
                               activeTabId === `scenario-${scenario.id}` ? 'bg-[#094771]' : ''
                             }`}
-                            onClick={() => onTabOpen({...scenario, type: 'scenario'})}
+                            onClick={() => onTabOpen({...scenario, type: 'scenario'} as CucumberScenario)}
                           >
                             <div
                               className="mr-1"

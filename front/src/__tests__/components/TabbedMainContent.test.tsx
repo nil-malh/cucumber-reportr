@@ -17,7 +17,7 @@ jest.mock('../../components/MainContent', () => {
 });
 
 jest.mock('../../components/TabBar', () => {
-  return function MockTabBar({ tabs, activeTabId, onTabClick, onTabClose }: any) {
+  return function MockTabBar({ tabs, onTabClick, onTabClose }: any) {
     return (
       <div data-testid="tab-bar">
         {tabs.map((tab: TabData) => (
