@@ -1,6 +1,4 @@
 package io.github.nil_malh.cucumber.reportr;
-import io.cucumber.plugin.ConcurrentEventListener;
-import io.cucumber.plugin.EventListener;
 import io.cucumber.plugin.event.EventPublisher;
 import io.cucumber.plugin.event.TestRunFinished;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,8 +26,6 @@ import static org.mockito.Mockito.verify;
 class CoreTest {
     @Mock
     private EventPublisher eventPublisher;
-    @Mock
-    private ConcurrentEventListener mockEventListener;
     @TempDir
     Path tempDir;
     private File outputDir;
@@ -85,12 +81,6 @@ class CoreTest {
         assertThat(core).isNotNull();
     }
     @Test
-    @DisplayName("Should create Core with deprecated ConcurrentEventListener constructor")
-    void shouldCreateCoreWithAllParameters() {
-        Core core = new Core(outputDir, jsonFile, mockEventListener);
-        assertThat(core).isNotNull();
-    }
-    @Test
     @DisplayName("Should create Core with OutputStream constructor")
     void shouldCreateCoreWithOutputStreamConstructor() throws IOException {
         OutputStream os = new ByteArrayOutputStream();
@@ -102,19 +92,6 @@ class CoreTest {
     void shouldCreateCoreWithFileFileConstructor() throws Exception {
         Core core = new Core(outputDir, jsonFile);
         assertThat(core).isNotNull();
-    }
-    @Test
-    @DisplayName("Should set event publisher and register handler (deprecated constructor)")
-    void shouldSetEventPublisherAndRegisterHandler() throws Exception {
-        // Given
-        Core core = new Core(outputDir, jsonFile, mockEventListener);
-        ArgumentCaptor<Class<?>> eventTypeCaptor = ArgumentCaptor.forClass(Class.class);
-        // When
-        core.setEventPublisher(eventPublisher);
-        // Then
-        verify(mockEventListener).setEventPublisher(eventPublisher);
-        verify(eventPublisher).registerHandlerFor(eventTypeCaptor.capture(), any());
-        assertThat(eventTypeCaptor.getValue()).isEqualTo(TestRunFinished.class);
     }
     @Test
     @DisplayName("Should set event publisher and register no-op handler (stream-based constructor)")
@@ -144,14 +121,6 @@ class CoreTest {
             File reportFile = new File(testOutputDir, "cucumber-pretty-report.html");
             assertThat(reportFile).exists();
         }
-    }
-    @Test
-    @DisplayName("Should create JSON event listener successfully")
-    void shouldCreateJsonEventListener() throws IOException {
-        File tempJsonFile = tempDir.resolve("test.json").toFile();
-        ConcurrentEventListener listener = Core.createJsonEventListener(tempJsonFile);
-        assertThat(listener).isNotNull();
-        assertThat(tempJsonFile).exists();
     }
     @Test
     @DisplayName("Should create temp file that gets deleted on exit")

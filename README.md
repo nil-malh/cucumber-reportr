@@ -41,6 +41,8 @@ Add the following dependency to your `pom.xml`:
 </dependency>
 ```
 
+> Check [Maven Central](https://central.sonatype.com/artifact/io.github.nil-malh/cucumber-reportr) for the latest released version.
+
 
 ## 📖 Usage
 
@@ -74,7 +76,7 @@ public class RunCucumberTest {
 ```bash
 # Clone the repository
 git clone https://github.com/nil-malh/cucumber-reportr.git
-cd cucumber-cucumber-reportr
+cd cucumber-reportr
 
 # Build the project (includes frontend)
 mvn clean package

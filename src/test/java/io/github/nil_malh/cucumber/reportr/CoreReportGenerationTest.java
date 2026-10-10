@@ -91,6 +91,7 @@ class CoreReportGenerationTest {
                 <div id="root"></div>
                 <script>
                     window.CUCUMBER_REPORT_DATA = /* CUCUMBER_REPORT_DATA_PLACEHOLDER */;
+                    window.REPORT_GENERATED_AT = /* REPORT_GENERATED_AT_PLACEHOLDER */;
                 </script>
             </body>
             </html>
@@ -115,6 +116,8 @@ class CoreReportGenerationTest {
         assertThat(reportContent).contains("Sample Feature");
         assertThat(reportContent).contains("Sample Scenario");
         assertThat(reportContent).doesNotContain("/* CUCUMBER_REPORT_DATA_PLACEHOLDER */");
+        assertThat(reportContent).doesNotContain("/* REPORT_GENERATED_AT_PLACEHOLDER */");
+        assertThat(reportContent).contains("REPORT_GENERATED_AT");
     }
 
     @Test
