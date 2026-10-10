@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { useTabs } from '../../hooks/useTabs';
-import { createMockFeature, createMockScenario } from '../testUtils';
+import { createMockFeature, createMockScenario, createMockStep } from '../testUtils';
 
 describe('useTabs', () => {
   it('initializes with empty tabs', () => {
@@ -155,5 +155,115 @@ describe('useTabs', () => {
 
     expect(result.current.tabs).toHaveLength(2);
     expect(result.current.activeTabId).toBe(`feature-${feature.id}`);
+  });
+
+  it('opens a new step tab', () => {
+    const { result } = renderHook(() => useTabs());
+    const step = createMockStep();
+    
+    act(() => {
+      result.current.openTab(step);
+    });
+
+    expect(result.current.tabs).toHaveLength(1);
+    expect(result.current.tabs[0].type).toBe('step');
+    expect(result.current.tabs[0].title).toBe(`${step.keyword}${step.name}`);
+    expect(result.current.activeTabId).toContain('step-');
+  });
+
+  it('generates step tab id using name and line', () => {
+    const { result } = renderHook(() => useTabs());
+    const step = createMockStep({ name: 'my step', line: 99 });
+    
+    act(() => {
+      result.current.openTab(step);
+    });
+
+    expect(result.current.activeTabId).toBe('step-my step-99');
+  });
+
+  it('generates step tab id with random when no line', () => {
+    const { result } = renderHook(() => useTabs());
+    const step = createMockStep({ name: 'no line step', line: 0 });
+    
+    act(() => {
+      result.current.openTab(step);
+    });
+
+    expect(result.current.activeTabId).toContain('step-no line step-');
+  });
+
+  it('opens different step tabs for different steps', () => {
+    const { result } = renderHook(() => useTabs());
+    const step1 = createMockStep({ name: 'step one', line: 10 });
+    const step2 = createMockStep({ name: 'step two', line: 20 });
+    
+    act(() => {
+      result.current.openTab(step1);
+    });
+
+    act(() => {
+      result.current.openTab(step2);
+    });
+
+    expect(result.current.tabs).toHaveLength(2);
+    expect(result.current.tabs[0].type).toBe('step');
+    expect(result.current.tabs[1].type).toBe('step');
+  });
+
+  it('does not add duplicate step tabs for same step', () => {
+    const { result } = renderHook(() => useTabs());
+    const step = createMockStep({ name: 'duplicate step', line: 42 });
+    
+    act(() => {
+      result.current.openTab(step);
+    });
+
+    act(() => {
+      result.current.openTab(step);
+    });
+
+    expect(result.current.tabs).toHaveLength(1);
+  });
+
+  it('closes a step tab and switches to remaining tab', () => {
+    const { result } = renderHook(() => useTabs());
+    const feature = createMockFeature();
+    const step = createMockStep({ name: 'step to close', line: 42 });
+    
+    act(() => {
+      result.current.openTab(feature);
+    });
+
+    act(() => {
+      result.current.openTab(step);
+    });
+
+    expect(result.current.activeTabId).toContain('step-');
+
+    act(() => {
+      result.current.closeTab(result.current.activeTabId!);
+    });
+
+    expect(result.current.tabs).toHaveLength(1);
+    expect(result.current.activeTabId).toBe(`feature-${feature.id}`);
+  });
+
+  it('closes active step tab when it is the only tab', () => {
+    const { result } = renderHook(() => useTabs());
+    const step = createMockStep({ name: 'only step', line: 42 });
+    
+    act(() => {
+      result.current.openTab(step);
+    });
+
+    const stepTabId = result.current.activeTabId!;
+
+    act(() => {
+      result.current.closeTab(stepTabId);
+    });
+
+    expect(result.current.tabs).toHaveLength(0);
+    expect(result.current.activeTabId).toBeNull();
   });
 });

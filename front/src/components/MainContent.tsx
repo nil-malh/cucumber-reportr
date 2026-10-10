@@ -4,7 +4,8 @@ import React from 'react';
 import { FileText } from 'lucide-react';
 import FeatureView from './FeatureView';
 import ScenarioView from './ScenarioView';
-import type { TabData, CucumberReport } from '../types/cucumber';
+import StepView from './StepView';
+import type { TabData, CucumberReport, CucumberStep } from '../types/cucumber';
 
 interface MainContentProps {
   activeTab: TabData;
@@ -31,6 +32,10 @@ const MainContent: React.FC<MainContentProps> = ({ activeTab, reportData }) => {
 
     if (activeTab.type === 'scenario' && activeTab.data) {
       return <ScenarioView scenario={activeTab.data} reportData={reportData} />;
+    }
+
+    if (activeTab.type === 'step' && activeTab.data) {
+      return <StepView step={activeTab.data as CucumberStep} />;
     }
 
     // For steps or other types

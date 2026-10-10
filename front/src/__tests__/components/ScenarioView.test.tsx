@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import ScenarioView from '../../components/ScenarioView';
 import { mockScenario, mockFeature, createMockReportData } from '../testUtils';
 
@@ -263,5 +263,51 @@ describe('ScenarioView', () => {
     // Step name appears twice - once in gherkin view, once in execution details
     expect(screen.getAllByText('a simple step')).toHaveLength(2);
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('collapses multi-line stack trace in execution details', () => {
+    const multiLineError = 'ConsumerException: Consumer died\n    at ConsumerValidationService.executeConsumer(ConsumerValidationService.java:299)\n    at ConsumerValidationService.validateSingleRecord(ConsumerValidationService.java:470)';
+    const scenario = mockScenario({
+      steps: [{
+        keyword: 'Then ',
+        name: 'expected record from file',
+        line: 51,
+        result: { status: 'failed', error_message: multiLineError }
+      }]
+    });
+    const feature = mockFeature({ elements: [scenario] });
+    const reportData = [feature];
+    
+    render(<ScenarioView scenario={scenario} reportData={reportData} />);
+    
+    // First line visible
+    expect(screen.getByText(/Consumer died/)).toBeInTheDocument();
+    // Stack trace toggle shown
+    expect(screen.getByText('Show stack trace (2 lines)')).toBeInTheDocument();
+    // Stack trace hidden
+    expect(screen.queryByText(/executeConsumer/)).not.toBeInTheDocument();
+    
+    // Expand
+    fireEvent.click(screen.getByText('Show stack trace (2 lines)'));
+    expect(screen.getByText(/executeConsumer/)).toBeInTheDocument();
+    expect(screen.getByText(/validateSingleRecord/)).toBeInTheDocument();
+  });
+
+  it('renders single-line error in execution details without toggle', () => {
+    const scenario = mockScenario({
+      steps: [{
+        keyword: 'Then ',
+        name: 'single line error step',
+        line: 10,
+        result: { status: 'failed', error_message: 'Just a simple error' }
+      }]
+    });
+    const feature = mockFeature({ elements: [scenario] });
+    const reportData = [feature];
+    
+    render(<ScenarioView scenario={scenario} reportData={reportData} />);
+    
+    expect(screen.getByText('Just a simple error')).toBeInTheDocument();
+    expect(screen.queryByText(/Show stack trace/)).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import ConsoleArea from '../../components/ConsoleArea';
-import { createMockReportData, createMockFeature } from '../testUtils';
 import type { ReportStats } from '../../types/cucumber';
 
 describe('ConsoleArea', () => {
@@ -21,7 +20,6 @@ describe('ConsoleArea', () => {
     totalDuration: 5000000000, // 5 seconds in nanoseconds
   };
 
-  const mockReportData = createMockReportData([createMockFeature()]);
   const mockOnToggleConsole = jest.fn();
 
   beforeEach(() => {
@@ -34,7 +32,6 @@ describe('ConsoleArea', () => {
         showConsole={false}
         onToggleConsole={mockOnToggleConsole}
         stats={mockStats}
-        reportData={mockReportData}
       />
     );
     
@@ -47,7 +44,6 @@ describe('ConsoleArea', () => {
         showConsole={true}
         onToggleConsole={mockOnToggleConsole}
         stats={mockStats}
-        reportData={mockReportData}
       />
     );
     
@@ -61,7 +57,6 @@ describe('ConsoleArea', () => {
         showConsole={true}
         onToggleConsole={mockOnToggleConsole}
         stats={mockStats}
-        reportData={mockReportData}
       />
     );
     
@@ -80,7 +75,6 @@ describe('ConsoleArea', () => {
         showConsole={true}
         onToggleConsole={mockOnToggleConsole}
         stats={mockStats}
-        reportData={mockReportData}
       />
     );
     
@@ -97,7 +91,6 @@ describe('ConsoleArea', () => {
         showConsole={true}
         onToggleConsole={mockOnToggleConsole}
         stats={mockStats}
-        reportData={mockReportData}
       />
     );
     
@@ -129,7 +122,6 @@ describe('ConsoleArea', () => {
         showConsole={true}
         onToggleConsole={mockOnToggleConsole}
         stats={zeroStats}
-        reportData={[]}
       />
     );
     
@@ -153,7 +145,6 @@ describe('ConsoleArea', () => {
         showConsole={true}
         onToggleConsole={mockOnToggleConsole}
         stats={largeStats}
-        reportData={mockReportData}
       />
     );
     
@@ -171,7 +162,6 @@ describe('ConsoleArea', () => {
         showConsole={true}
         onToggleConsole={mockOnToggleConsole}
         stats={decimalStats}
-        reportData={mockReportData}
       />
     );
     
@@ -184,7 +174,6 @@ describe('ConsoleArea', () => {
         showConsole={true}
         onToggleConsole={mockOnToggleConsole}
         stats={mockStats}
-        reportData={mockReportData}
       />
     );
     

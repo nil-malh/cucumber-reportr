@@ -2,13 +2,12 @@
 
 import React from 'react';
 import { Terminal } from 'lucide-react';
-import type { ReportStats, CucumberReport } from '../types/cucumber';
+import type { ReportStats } from '../types/cucumber';
 
 interface ConsoleAreaProps {
   showConsole: boolean;
   onToggleConsole: (show: boolean) => void;
   stats: ReportStats;
-  reportData: CucumberReport;
 }
 
 const ConsoleArea: React.FC<ConsoleAreaProps> = ({ 

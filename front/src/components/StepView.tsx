@@ -2,6 +2,8 @@
 
 import React from 'react';
 import StatusIcon from './StatusIcon';
+import CollapsibleError from './CollapsibleError';
+import Embeddings from './Embeddings';
 import { formatDuration } from '../utils/cucumberUtils';
 import type { CucumberStep } from '../types/cucumber';
 
@@ -46,10 +48,23 @@ const StepView: React.FC<StepViewProps> = ({ step }) => {
             </table>
           </div>
         )}
+        {step.doc_string && (
+          <div className="mt-3">
+            {step.doc_string.content_type && (
+              <div className="text-xs text-[#858585] mb-1">
+                {step.doc_string.content_type}
+              </div>
+            )}
+            <pre className="p-2 bg-[#1e1e1e] border border-[#3e3e42] rounded text-xs text-[#ce9178] whitespace-pre-wrap break-words">
+{step.doc_string.value}
+            </pre>
+          </div>
+        )}
         {step.result?.error_message && (
-          <pre className="mt-3 p-2 bg-[#1e1e1e] border border-[#f14c4c] rounded text-xs text-[#f48771] whitespace-pre overflow-x-auto">
-{step.result.error_message}
-          </pre>
+          <CollapsibleError errorMessage={step.result.error_message} />
+        )}
+        {step.embeddings && step.embeddings.length > 0 && (
+          <Embeddings embeddings={step.embeddings} />
         )}
       </div>
     </div>

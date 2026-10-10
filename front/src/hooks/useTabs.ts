@@ -43,13 +43,15 @@ export const useTabs = (): TabsHook => {
     return 'Unknown';
   };
 
-  const getTabType = (item: TabItem): 'feature' | 'scenario' | 'analytics' => {
+  const getTabType = (item: TabItem): 'feature' | 'scenario' | 'analytics' | 'step' => {
     if ('type' in item && item.type === 'analytics') {
       return 'analytics';
     } else if ('elements' in item) {
       return 'feature';
     } else if ('steps' in item) {
       return 'scenario';
+    } else if ('result' in item) {
+      return 'step';
     }
     return 'feature'; // fallback
   };
@@ -70,7 +72,7 @@ export const useTabs = (): TabsHook => {
       id: tabId,
       title: getTabTitle(item),
       type: getTabType(item),
-      data: 'type' in item && item.type === 'analytics' ? null : item as (CucumberFeature | CucumberScenario)
+      data: 'type' in item && item.type === 'analytics' ? null : item as (CucumberFeature | CucumberScenario | CucumberStep)
     };
 
     setTabs(prevTabs => [...prevTabs, newTab]);

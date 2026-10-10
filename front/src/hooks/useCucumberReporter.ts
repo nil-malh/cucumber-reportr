@@ -1,6 +1,6 @@
 // Custom hooks for Cucumber Reporter state management
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getCucumberReportData } from '../data/reportData';
 import { buildFolderStructure, calculateStats } from '../utils/cucumberUtils';
 import type { 
@@ -53,15 +53,10 @@ const processData = (data: CucumberReport | null) => {
 export const useCucumberData = (): CucumberDataHook => {
   // Lazy-initialize from the latest data at mount time, in case it was
   // loaded after initial module evaluation but before this component mounted.
-  const [reportData, setReportData] = useState<CucumberReport>(
-    () => processData(getCucumberReportData()).features
-  );
-  const [folderStructure, setFolderStructure] = useState<FolderStructure>(
-    () => processData(getCucumberReportData()).folderStructure
-  );
-  const [stats, setStats] = useState<ReportStats>(
-    () => processData(getCucumberReportData()).stats
-  );
+  const initialData = useMemo(() => processData(getCucumberReportData()), []);
+  const [reportData, setReportData] = useState<CucumberReport>(initialData.features);
+  const [folderStructure, setFolderStructure] = useState<FolderStructure>(initialData.folderStructure);
+  const [stats, setStats] = useState<ReportStats>(initialData.stats);
 
   useEffect(() => {
     // Listener for dynamic updates from external scripts
