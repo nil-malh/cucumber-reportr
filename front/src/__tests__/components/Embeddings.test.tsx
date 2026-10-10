@@ -67,6 +67,16 @@ describe('Embeddings', () => {
     expect(screen.getByText(jsonContent)).toBeInTheDocument();
   });
 
+  it('renders application/json embedding with raw data when not base64', () => {
+    const embeddings = [
+      { mime_type: 'application/json', data: '{"raw": "json"}', name: 'raw.json' }
+    ];
+    render(<Embeddings embeddings={embeddings} />);
+    
+    expect(screen.getByText('raw.json')).toBeInTheDocument();
+    expect(screen.getByText('{"raw": "json"}')).toBeInTheDocument();
+  });
+
   it('renders unknown mime type as download link', () => {
     const embeddings = [
       { mime_type: 'application/pdf', data: 'JVBERi', name: 'report.pdf' }

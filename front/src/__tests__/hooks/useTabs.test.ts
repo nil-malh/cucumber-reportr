@@ -266,4 +266,52 @@ describe('useTabs', () => {
     expect(result.current.tabs).toHaveLength(0);
     expect(result.current.activeTabId).toBeNull();
   });
+
+  it('handles unknown item type with fallback tab id and title', () => {
+    const { result } = renderHook(() => useTabs());
+    // Pass an object that doesn't match any type guard (no 'elements', 'steps', 'result', or analytics 'type')
+    const unknownItem = { foo: 'bar' } as any;
+    
+    act(() => {
+      result.current.openTab(unknownItem);
+    });
+
+    expect(result.current.tabs).toHaveLength(1);
+    expect(result.current.tabs[0].type).toBe('feature'); // fallback type
+    expect(result.current.tabs[0].title).toBe('Unknown'); // fallback title
+    expect(result.current.activeTabId).toContain('tab-');
+  });
+
+  it('uses feature uri filename for feature tab title', () => {
+    const { result } = renderHook(() => useTabs());
+    const feature = createMockFeature({ uri: 'features/auth/login.feature' });
+    
+    act(() => {
+      result.current.openTab(feature);
+    });
+
+    expect(result.current.tabs[0].title).toBe('login.feature');
+  });
+
+  it('uses feature name when uri has no filename', () => {
+    const { result } = renderHook(() => useTabs());
+    const feature = createMockFeature({ uri: '', name: 'Fallback Name Feature' });
+    
+    act(() => {
+      result.current.openTab(feature);
+    });
+
+    expect(result.current.tabs[0].title).toBe('Fallback Name Feature');
+  });
+
+  it('uses scenario name for scenario tab title', () => {
+    const { result } = renderHook(() => useTabs());
+    const scenario = createMockScenario({ name: 'My Custom Scenario' });
+    
+    act(() => {
+      result.current.openTab(scenario);
+    });
+
+    expect(result.current.tabs[0].title).toBe('My Custom Scenario');
+  });
 });

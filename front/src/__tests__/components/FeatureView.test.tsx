@@ -408,4 +408,134 @@ describe('FeatureView', () => {
     expect(failedElements.length).toBe(2);
     expect(screen.getByText('Passed: 1')).toBeInTheDocument();
   });
+
+  it('renders doc_string in background step', () => {
+    const background = {
+      id: 'background-1',
+      name: 'Setup',
+      line: 3,
+      keyword: 'Background',
+      type: 'background' as const,
+      steps: [
+        createMockStep({
+          keyword: 'Given ',
+          name: 'a doc string is provided',
+          result: { status: 'passed' },
+          doc_string: {
+            value: 'Background setup content\nmulti-line',
+            line: 5,
+            content_type: 'text/plain'
+          }
+        })
+      ]
+    };
+
+    const feature = mockFeature({
+      name: 'Feature with background doc string',
+      elements: [background, mockScenario()]
+    });
+
+    render(<FeatureView feature={feature} />);
+
+    expect(screen.getByText('text/plain')).toBeInTheDocument();
+    expect(screen.getByText(/Background setup content/)).toBeInTheDocument();
+  });
+
+  it('renders doc_string in scenario step', () => {
+    const scenario = mockScenario({
+      name: 'Scenario with doc string',
+      steps: [
+        createMockStep({
+          keyword: 'Given ',
+          name: 'a doc string',
+          result: { status: 'passed' },
+          doc_string: {
+            value: '{"key": "value"}',
+            line: 10,
+            content_type: 'application/json'
+          }
+        })
+      ]
+    });
+
+    const feature = mockFeature({ elements: [scenario] });
+    render(<FeatureView feature={feature} />);
+
+    expect(screen.getByText('application/json')).toBeInTheDocument();
+    expect(screen.getByText(/"key": "value"/)).toBeInTheDocument();
+  });
+
+  it('renders doc_string without content_type in scenario step', () => {
+    const scenario = mockScenario({
+      steps: [
+        createMockStep({
+          keyword: 'Given ',
+          name: 'a plain doc string',
+          result: { status: 'passed' },
+          doc_string: {
+            value: 'Plain text content',
+            line: 10
+          }
+        })
+      ]
+    });
+
+    const feature = mockFeature({ elements: [scenario] });
+    render(<FeatureView feature={feature} />);
+
+    expect(screen.getByText('Plain text content')).toBeInTheDocument();
+    expect(screen.queryByText('text/plain')).not.toBeInTheDocument();
+  });
+
+  it('renders embeddings in background step', () => {
+    const background = {
+      id: 'background-1',
+      name: 'Setup',
+      line: 3,
+      keyword: 'Background',
+      type: 'background' as const,
+      steps: [
+        createMockStep({
+          keyword: 'Given ',
+          name: 'a screenshot is taken',
+          result: { status: 'passed' },
+          embeddings: [
+            { mime_type: 'image/png', data: 'iVBORw0KGgo=', name: 'bg-screenshot.png' }
+          ]
+        })
+      ]
+    };
+
+    const feature = mockFeature({
+      name: 'Feature with background embedding',
+      elements: [background, mockScenario()]
+    });
+
+    render(<FeatureView feature={feature} />);
+
+    const img = screen.getByAltText('bg-screenshot.png');
+    expect(img).toBeInTheDocument();
+    expect(img.getAttribute('src')).toBe('data:image/png;base64,iVBORw0KGgo=');
+  });
+
+  it('renders embeddings in scenario step', () => {
+    const scenario = mockScenario({
+      name: 'Scenario with embedding',
+      steps: [
+        createMockStep({
+          keyword: 'Then ',
+          name: 'a screenshot is captured',
+          result: { status: 'failed' },
+          embeddings: [
+            { mime_type: 'image/png', data: 'iVBORw0KGgo=', name: 'screenshot.png' }
+          ]
+        })
+      ]
+    });
+
+    const feature = mockFeature({ elements: [scenario] });
+    render(<FeatureView feature={feature} />);
+
+    expect(screen.getByAltText('screenshot.png')).toBeInTheDocument();
+  });
 });
