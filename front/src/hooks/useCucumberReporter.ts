@@ -50,25 +50,20 @@ const processData = (data: CucumberReport | null) => {
 };
 
 // Pre-process initial data to avoid flash of empty content
-const {
-  features: initialFeatures,
-  folderStructure: initialFolderStructure,
-  stats: initialStats
-} = processData(getCucumberReportData());
-
 export const useCucumberData = (): CucumberDataHook => {
-  const [reportData, setReportData] = useState<CucumberReport>(initialFeatures);
-  const [folderStructure, setFolderStructure] = useState<FolderStructure>(initialFolderStructure);
-  const [stats, setStats] = useState<ReportStats>(initialStats);
+  // Lazy-initialize from the latest data at mount time, in case it was
+  // loaded after initial module evaluation but before this component mounted.
+  const [reportData, setReportData] = useState<CucumberReport>(
+    () => processData(getCucumberReportData()).features
+  );
+  const [folderStructure, setFolderStructure] = useState<FolderStructure>(
+    () => processData(getCucumberReportData()).folderStructure
+  );
+  const [stats, setStats] = useState<ReportStats>(
+    () => processData(getCucumberReportData()).stats
+  );
 
   useEffect(() => {
-    // Re-check data on mount in case it was loaded after initial module evaluation
-    // but before this component mounted.
-    const { features, folderStructure, stats } = processData(getCucumberReportData());
-    setReportData(features);
-    setFolderStructure(folderStructure);
-    setStats(stats);
-
     // Listener for dynamic updates from external scripts
     const handleDataUpdate = (event: CustomEvent<CucumberReport>) => {
       const { features, folderStructure, stats } = processData(event.detail);

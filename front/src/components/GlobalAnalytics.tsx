@@ -32,6 +32,124 @@ interface FeatureStats {
   duration: number;
 }
 
+const BarChart: React.FC<{ data: ChartDataItem[]; title: string; className?: string }> = ({
+  data,
+  title,
+  className = ""
+}) => {
+  const maxValue = Math.max(...data.map(d => d.value));
+
+  return (
+    <div className={`bg-[#252526] rounded p-4 border border-[#3e3e42] ${className}`}>
+      <h3 className="text-sm font-bold mb-3 text-[#4ec9b0]">{title}</h3>
+      <div className="space-y-2">
+        {data.map((item, index) => (
+          <div key={index} className="flex items-center">
+            <div className="w-20 text-xs text-right mr-2 text-[#858585]">
+              {item.label}
+            </div>
+            <div className="flex-1 bg-[#1e1e1e] rounded h-4 relative">
+              <div
+                className={`h-full rounded transition-all duration-300 ${item.color}`}
+                style={{ width: `${maxValue > 0 ? (item.value / maxValue) * 100 : 0}%` }}
+              />
+              <span className="absolute inset-0 flex items-center justify-center text-xs text-[#cccccc]">
+                {item.value}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const DonutChart: React.FC<{ data: ChartDataItem[]; title: string; className?: string }> = ({
+  data,
+  title,
+  className = ""
+}) => {
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+
+  // Precompute cumulative percentages so we don't mutate during render
+  const segments = data.reduce<
+    { item: ChartDataItem; percentage: number; strokeDashoffset: number }[]
+  >((acc, item) => {
+    const percentage = total > 0 ? (item.value / total) * 100 : 0;
+    const cumulative = acc.length > 0 ? acc[acc.length - 1].percentage + acc[acc.length - 1].item.value / total * 100 : 0;
+    acc.push({ item, percentage, strokeDashoffset: -cumulative * 2.51 });
+    return acc;
+  }, []);
+
+  return (
+    <div className={`bg-[#252526] rounded p-4 border border-[#3e3e42] ${className}`}>
+      <h3 className="text-sm font-bold mb-3 text-[#4ec9b0]">{title}</h3>
+      <div className="flex items-center justify-center">
+        <div className="relative w-32 h-32">
+          <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="40" fill="transparent" stroke="#3e3e42" strokeWidth="8"/>
+            {segments.map(({ item, percentage, strokeDashoffset }, index) => {
+              const strokeDasharray = `${percentage * 2.51} ${251.2 - percentage * 2.51}`;
+
+              if (item.value === 0) return null;
+
+              return (
+                <circle
+                  key={index}
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="transparent"
+                  stroke={item.strokeColor}
+                  strokeWidth="8"
+                  strokeDasharray={strokeDasharray}
+                  strokeDashoffset={strokeDashoffset}
+                  className="transition-all duration-300"
+                />
+              );
+            })}
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-lg font-bold text-[#cccccc]">{total}</div>
+              <div className="text-xs text-[#858585]">Total</div>
+            </div>
+          </div>
+        </div>
+        <div className="ml-4 space-y-1">
+          {data.map((item, index) => (
+            <div key={index} className="flex items-center text-xs">
+              <div
+                className="w-3 h-3 rounded mr-2"
+                style={{ backgroundColor: item.strokeColor }}
+              />
+              <span className="text-[#858585] mr-2">{item.label}:</span>
+              <span className="text-[#cccccc]">{item.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const MetricCard: React.FC<{
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  value: string | number;
+  subtitle?: string;
+  color?: string;
+}> = ({ icon: Icon, title, value, subtitle, color = "text-[#cccccc]" }) => (
+  <div className="bg-[#252526] rounded p-4 border border-[#3e3e42]">
+    <div className="flex items-center mb-2">
+      <Icon className={`w-4 h-4 mr-2 ${color}`} />
+      <span className="text-xs text-[#858585]">{title}</span>
+    </div>
+    <div className={`text-lg font-bold ${color}`}>{value}</div>
+    {subtitle && <div className="text-xs text-[#858585] mt-1">{subtitle}</div>}
+  </div>
+);
+
 interface Analytics {
   scenarios: {
     total: number;
@@ -150,119 +268,6 @@ const GlobalAnalytics: React.FC<GlobalAnalyticsProps> = ({ reportData }) => {
       featureStats: features.sort((a, b) => b.duration - a.duration)
     };
   }, [reportData]);
-
-  // Create simple chart components
-  const BarChart: React.FC<{ data: ChartDataItem[]; title: string; className?: string }> = ({ 
-    data, 
-    title, 
-    className = "" 
-  }) => {
-    const maxValue = Math.max(...data.map(d => d.value));
-    
-    return (
-      <div className={`bg-[#252526] rounded p-4 border border-[#3e3e42] ${className}`}>
-        <h3 className="text-sm font-bold mb-3 text-[#4ec9b0]">{title}</h3>
-        <div className="space-y-2">
-          {data.map((item, index) => (
-            <div key={index} className="flex items-center">
-              <div className="w-20 text-xs text-right mr-2 text-[#858585]">
-                {item.label}
-              </div>
-              <div className="flex-1 bg-[#1e1e1e] rounded h-4 relative">
-                <div 
-                  className={`h-full rounded transition-all duration-300 ${item.color}`}
-                  style={{ width: `${maxValue > 0 ? (item.value / maxValue) * 100 : 0}%` }}
-                />
-                <span className="absolute inset-0 flex items-center justify-center text-xs text-[#cccccc]">
-                  {item.value}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  const DonutChart: React.FC<{ data: ChartDataItem[]; title: string; className?: string }> = ({ 
-    data, 
-    title, 
-    className = "" 
-  }) => {
-    const total = data.reduce((sum, item) => sum + item.value, 0);
-    let cumulativePercentage = 0;
-
-    return (
-      <div className={`bg-[#252526] rounded p-4 border border-[#3e3e42] ${className}`}>
-        <h3 className="text-sm font-bold mb-3 text-[#4ec9b0]">{title}</h3>
-        <div className="flex items-center justify-center">
-          <div className="relative w-32 h-32">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="40" fill="transparent" stroke="#3e3e42" strokeWidth="8"/>
-              {data.map((item, index) => {
-                const percentage = total > 0 ? (item.value / total) * 100 : 0;
-                const strokeDasharray = `${percentage * 2.51} ${251.2 - percentage * 2.51}`;
-                const strokeDashoffset = -cumulativePercentage * 2.51;
-                cumulativePercentage += percentage;
-                
-                if (item.value === 0) return null;
-                
-                return (
-                  <circle
-                    key={index}
-                    cx="50"
-                    cy="50"
-                    r="40"
-                    fill="transparent"
-                    stroke={item.strokeColor}
-                    strokeWidth="8"
-                    strokeDasharray={strokeDasharray}
-                    strokeDashoffset={strokeDashoffset}
-                    className="transition-all duration-300"
-                  />
-                );
-              })}
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-lg font-bold text-[#cccccc]">{total}</div>
-                <div className="text-xs text-[#858585]">Total</div>
-              </div>
-            </div>
-          </div>
-          <div className="ml-4 space-y-1">
-            {data.map((item, index) => (
-              <div key={index} className="flex items-center text-xs">
-                <div 
-                  className="w-3 h-3 rounded mr-2"
-                  style={{ backgroundColor: item.strokeColor }}
-                />
-                <span className="text-[#858585] mr-2">{item.label}:</span>
-                <span className="text-[#cccccc]">{item.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const MetricCard: React.FC<{
-    icon: React.ComponentType<{ className?: string }>;
-    title: string;
-    value: string | number;
-    subtitle?: string;
-    color?: string;
-  }> = ({ icon: Icon, title, value, subtitle, color = "text-[#cccccc]" }) => (
-    <div className="bg-[#252526] rounded p-4 border border-[#3e3e42]">
-      <div className="flex items-center mb-2">
-        <Icon className={`w-4 h-4 mr-2 ${color}`} />
-        <span className="text-xs text-[#858585]">{title}</span>
-      </div>
-      <div className={`text-lg font-bold ${color}`}>{value}</div>
-      {subtitle && <div className="text-xs text-[#858585] mt-1">{subtitle}</div>}
-    </div>
-  );
 
   const scenarioChartData: ChartDataItem[] = [
     { label: 'Passed', value: analytics.scenarios.passed, color: 'bg-[#4ade80]', strokeColor: '#4ade80' },
