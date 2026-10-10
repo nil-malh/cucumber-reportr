@@ -1,5 +1,7 @@
 package io.github.nil_malh.cucumber.reportr;
+import io.cucumber.plugin.event.Event;
 import io.cucumber.plugin.event.EventPublisher;
+import io.cucumber.plugin.event.EventHandler;
 import io.cucumber.plugin.event.TestRunFinished;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -105,6 +107,29 @@ class CoreTest {
         // Then
         verify(eventPublisher, atLeastOnce()).registerHandlerFor(eventTypeCaptor.capture(), any());
         assertThat(eventTypeCaptor.getAllValues()).contains(TestRunFinished.class);
+    }
+
+    @Test
+    @DisplayName("Should invoke no-op handler without throwing (lambda coverage)")
+    void shouldInvokeNoOpHandlerWithoutThrowing() throws IOException {
+        // Given - capture the handler via doAnswer to invoke it
+        OutputStream os = new ByteArrayOutputStream();
+        Core core = new Core(outputDir, jsonFile, os);
+        org.mockito.stubbing.Answer<Void> captureAndInvoke = invocation -> {
+            // Only invoke the handler if it's for TestRunFinished (the no-op lambda)
+            Class<?> eventType = invocation.getArgument(0);
+            if (eventType == TestRunFinished.class) {
+                @SuppressWarnings("unchecked")
+                EventHandler<Event> handler = (EventHandler<Event>) invocation.getArgument(1);
+                handler.receive(null); // invoke the no-op lambda body
+            }
+            return null;
+        };
+        org.mockito.Mockito.doAnswer(captureAndInvoke)
+            .when(eventPublisher).registerHandlerFor(any(), any());
+        // When
+        core.setEventPublisher(eventPublisher);
+        // Then - no exception thrown means the lambda body was covered
     }
     @Test
     @DisplayName("Should trigger report generation when OutputStream is closed (stream-based constructor)")
