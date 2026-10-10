@@ -21,6 +21,8 @@ interface ChartDataItem {
   value: number;
   color: string;
   strokeColor?: string;
+  tooltip?: string;
+  formattedValue?: string;
 }
 
 interface FeatureStats {
@@ -32,10 +34,11 @@ interface FeatureStats {
   duration: number;
 }
 
-const BarChart: React.FC<{ data: ChartDataItem[]; title: string; className?: string }> = ({
+const BarChart: React.FC<{ data: ChartDataItem[]; title: string; className?: string; labelWidth?: string }> = ({
   data,
   title,
-  className = ""
+  className = "",
+  labelWidth = "w-20"
 }) => {
   const maxValue = Math.max(...data.map(d => d.value));
 
@@ -44,17 +47,17 @@ const BarChart: React.FC<{ data: ChartDataItem[]; title: string; className?: str
       <h3 className="text-sm font-bold mb-3 text-[#4ec9b0]">{title}</h3>
       <div className="space-y-2">
         {data.map((item, index) => (
-          <div key={index} className="flex items-center">
-            <div className="w-20 text-xs text-right mr-2 text-[#858585]">
+          <div key={index} className="flex items-center" title={item.tooltip}>
+            <div className={`${labelWidth} text-xs text-right mr-2 text-[#858585] truncate`}>
               {item.label}
             </div>
-            <div className="flex-1 bg-[#1e1e1e] rounded h-4 relative">
+            <div className="flex-1 bg-[#1e1e1e] rounded h-5 relative overflow-hidden">
               <div
                 className={`h-full rounded transition-all duration-300 ${item.color}`}
                 style={{ width: `${maxValue > 0 ? (item.value / maxValue) * 100 : 0}%` }}
               />
-              <span className="absolute inset-0 flex items-center justify-center text-xs text-[#cccccc]">
-                {item.value}
+              <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs text-[#cccccc]">
+                {item.formattedValue ?? item.value}
               </span>
             </div>
           </div>
@@ -284,9 +287,11 @@ const GlobalAnalytics: React.FC<GlobalAnalyticsProps> = ({ reportData }) => {
   ];
 
   const topFeaturesData: ChartDataItem[] = analytics.featureStats.slice(0, 5).map(f => ({
-    label: f.name.length > 15 ? f.name.substring(0, 15) + '...' : f.name,
-    value: Math.round(f.duration / 10000000), // Convert to seconds
-    color: 'bg-[#007acc]'
+    label: f.name,
+    value: f.duration,
+    color: 'bg-[#007acc]',
+    tooltip: f.name,
+    formattedValue: formatDuration(f.duration)
   }));
 
   return (
@@ -359,6 +364,7 @@ const GlobalAnalytics: React.FC<GlobalAnalyticsProps> = ({ reportData }) => {
           <BarChart
             data={topFeaturesData}
             title="Top 5 Features by Execution Time"
+            labelWidth="w-40"
           />
           <div className="bg-[#252526] rounded p-4 border border-[#3e3e42]">
             <h3 className="text-sm font-bold mb-3 text-[#4ec9b0]">Execution Time Metrics</h3>

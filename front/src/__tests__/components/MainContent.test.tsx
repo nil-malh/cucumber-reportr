@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import MainContent from '../../components/MainContent';
-import { mockFeature, mockScenario, createMockReportData } from '../testUtils';
+import { mockFeature, mockScenario, mockStep, createMockReportData } from '../testUtils';
 import type { TabData } from '../../types/cucumber';
 
 // Mock the child components since we're testing MainContent behavior
@@ -76,6 +76,21 @@ describe('MainContent', () => {
     
     expect(screen.getByTestId('scenario-view')).toBeInTheDocument();
     expect(screen.getByText(`Scenario: ${scenario.name}`)).toBeInTheDocument();
+  });
+
+  it('renders StepView when active tab type is step', () => {
+    const step = mockStep();
+    const activeTab: TabData = {
+      id: 'step-tab',
+      title: 'Step Tab',
+      type: 'step',
+      data: step
+    };
+    
+    render(<MainContent activeTab={activeTab} reportData={reportData} />);
+    
+    expect(screen.getByTestId('step-view')).toBeInTheDocument();
+    expect(screen.getByText(`Step: ${step.name}`)).toBeInTheDocument();
   });
 
   it('renders unsupported content message for unknown tab types', () => {

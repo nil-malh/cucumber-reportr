@@ -109,7 +109,6 @@ const CucumberReporter: React.FC = () => {
             showConsole={showConsole}
             onToggleConsole={setShowConsole}
             stats={stats}
-            reportData={reportData}
           />
         </div>
       </div>

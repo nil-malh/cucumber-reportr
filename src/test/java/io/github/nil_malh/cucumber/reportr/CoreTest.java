@@ -1,7 +1,7 @@
 package io.github.nil_malh.cucumber.reportr;
-import io.cucumber.plugin.ConcurrentEventListener;
-import io.cucumber.plugin.EventListener;
+import io.cucumber.plugin.event.Event;
 import io.cucumber.plugin.event.EventPublisher;
+import io.cucumber.plugin.event.EventHandler;
 import io.cucumber.plugin.event.TestRunFinished;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -28,8 +28,6 @@ import static org.mockito.Mockito.verify;
 class CoreTest {
     @Mock
     private EventPublisher eventPublisher;
-    @Mock
-    private ConcurrentEventListener mockEventListener;
     @TempDir
     Path tempDir;
     private File outputDir;
@@ -85,12 +83,6 @@ class CoreTest {
         assertThat(core).isNotNull();
     }
     @Test
-    @DisplayName("Should create Core with deprecated ConcurrentEventListener constructor")
-    void shouldCreateCoreWithAllParameters() {
-        Core core = new Core(outputDir, jsonFile, mockEventListener);
-        assertThat(core).isNotNull();
-    }
-    @Test
     @DisplayName("Should create Core with OutputStream constructor")
     void shouldCreateCoreWithOutputStreamConstructor() throws IOException {
         OutputStream os = new ByteArrayOutputStream();
@@ -104,19 +96,6 @@ class CoreTest {
         assertThat(core).isNotNull();
     }
     @Test
-    @DisplayName("Should set event publisher and register handler (deprecated constructor)")
-    void shouldSetEventPublisherAndRegisterHandler() throws Exception {
-        // Given
-        Core core = new Core(outputDir, jsonFile, mockEventListener);
-        ArgumentCaptor<Class<?>> eventTypeCaptor = ArgumentCaptor.forClass(Class.class);
-        // When
-        core.setEventPublisher(eventPublisher);
-        // Then
-        verify(mockEventListener).setEventPublisher(eventPublisher);
-        verify(eventPublisher).registerHandlerFor(eventTypeCaptor.capture(), any());
-        assertThat(eventTypeCaptor.getValue()).isEqualTo(TestRunFinished.class);
-    }
-    @Test
     @DisplayName("Should set event publisher and register no-op handler (stream-based constructor)")
     void shouldSetEventPublisherAndRegisterNoOpHandlerForStreamConstructor() throws IOException {
         // Given
@@ -128,6 +107,29 @@ class CoreTest {
         // Then
         verify(eventPublisher, atLeastOnce()).registerHandlerFor(eventTypeCaptor.capture(), any());
         assertThat(eventTypeCaptor.getAllValues()).contains(TestRunFinished.class);
+    }
+
+    @Test
+    @DisplayName("Should invoke no-op handler without throwing (lambda coverage)")
+    void shouldInvokeNoOpHandlerWithoutThrowing() throws IOException {
+        // Given - capture the handler via doAnswer to invoke it
+        OutputStream os = new ByteArrayOutputStream();
+        Core core = new Core(outputDir, jsonFile, os);
+        org.mockito.stubbing.Answer<Void> captureAndInvoke = invocation -> {
+            // Only invoke the handler if it's for TestRunFinished (the no-op lambda)
+            Class<?> eventType = invocation.getArgument(0);
+            if (eventType == TestRunFinished.class) {
+                @SuppressWarnings("unchecked")
+                EventHandler<Event> handler = (EventHandler<Event>) invocation.getArgument(1);
+                handler.receive(null); // invoke the no-op lambda body
+            }
+            return null;
+        };
+        org.mockito.Mockito.doAnswer(captureAndInvoke)
+            .when(eventPublisher).registerHandlerFor(any(), any());
+        // When
+        core.setEventPublisher(eventPublisher);
+        // Then - no exception thrown means the lambda body was covered
     }
     @Test
     @DisplayName("Should trigger report generation when OutputStream is closed (stream-based constructor)")
@@ -144,14 +146,6 @@ class CoreTest {
             File reportFile = new File(testOutputDir, "cucumber-pretty-report.html");
             assertThat(reportFile).exists();
         }
-    }
-    @Test
-    @DisplayName("Should create JSON event listener successfully")
-    void shouldCreateJsonEventListener() throws IOException {
-        File tempJsonFile = tempDir.resolve("test.json").toFile();
-        ConcurrentEventListener listener = Core.createJsonEventListener(tempJsonFile);
-        assertThat(listener).isNotNull();
-        assertThat(tempJsonFile).exists();
     }
     @Test
     @DisplayName("Should create temp file that gets deleted on exit")

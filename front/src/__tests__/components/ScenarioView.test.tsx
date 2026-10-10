@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import ScenarioView from '../../components/ScenarioView';
 import { mockScenario, mockFeature, createMockReportData } from '../testUtils';
 
@@ -263,5 +263,146 @@ describe('ScenarioView', () => {
     // Step name appears twice - once in gherkin view, once in execution details
     expect(screen.getAllByText('a simple step')).toHaveLength(2);
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('collapses multi-line stack trace in execution details', () => {
+    const multiLineError = 'ConsumerException: Consumer died\n    at ConsumerValidationService.executeConsumer(ConsumerValidationService.java:299)\n    at ConsumerValidationService.validateSingleRecord(ConsumerValidationService.java:470)';
+    const scenario = mockScenario({
+      steps: [{
+        keyword: 'Then ',
+        name: 'expected record from file',
+        line: 51,
+        result: { status: 'failed', error_message: multiLineError }
+      }]
+    });
+    const feature = mockFeature({ elements: [scenario] });
+    const reportData = [feature];
+    
+    render(<ScenarioView scenario={scenario} reportData={reportData} />);
+    
+    // First line visible
+    expect(screen.getByText(/Consumer died/)).toBeInTheDocument();
+    // Stack trace toggle shown
+    expect(screen.getByText('Show stack trace (2 lines)')).toBeInTheDocument();
+    // Stack trace hidden
+    expect(screen.queryByText(/executeConsumer/)).not.toBeInTheDocument();
+    
+    // Expand
+    fireEvent.click(screen.getByText('Show stack trace (2 lines)'));
+    expect(screen.getByText(/executeConsumer/)).toBeInTheDocument();
+    expect(screen.getByText(/validateSingleRecord/)).toBeInTheDocument();
+  });
+
+  it('renders single-line error in execution details without toggle', () => {
+    const scenario = mockScenario({
+      steps: [{
+        keyword: 'Then ',
+        name: 'single line error step',
+        line: 10,
+        result: { status: 'failed', error_message: 'Just a simple error' }
+      }]
+    });
+    const feature = mockFeature({ elements: [scenario] });
+    const reportData = [feature];
+    
+    render(<ScenarioView scenario={scenario} reportData={reportData} />);
+    
+    expect(screen.getByText('Just a simple error')).toBeInTheDocument();
+    expect(screen.queryByText(/Show stack trace/)).not.toBeInTheDocument();
+  });
+
+  it('renders doc_string in gherkin view and execution details', () => {
+    const scenario = mockScenario({
+      steps: [{
+        keyword: 'Given ',
+        name: 'a doc string step',
+        line: 10,
+        result: { status: 'passed' },
+        doc_string: {
+          value: 'Multi-line\ndoc string content',
+          line: 11,
+          content_type: 'text/plain'
+        }
+      }]
+    });
+    const feature = mockFeature({ elements: [scenario] });
+    const reportData = [feature];
+    
+    render(<ScenarioView scenario={scenario} reportData={reportData} />);
+    
+    // doc_string appears in both gherkin view and execution details
+    const docStringContents = screen.getAllByText(/Multi-line/);
+    expect(docStringContents.length).toBeGreaterThanOrEqual(2);
+    // content_type label appears in both views
+    const contentTypeLabels = screen.getAllByText('text/plain');
+    expect(contentTypeLabels.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('renders doc_string without content_type in both views', () => {
+    const scenario = mockScenario({
+      steps: [{
+        keyword: 'Given ',
+        name: 'a plain doc string',
+        line: 10,
+        result: { status: 'passed' },
+        doc_string: {
+          value: 'Plain content',
+          line: 11
+        }
+      }]
+    });
+    const feature = mockFeature({ elements: [scenario] });
+    const reportData = [feature];
+    
+    render(<ScenarioView scenario={scenario} reportData={reportData} />);
+    
+    // doc_string value appears in both views (gherkin + execution)
+    const contents = screen.getAllByText('Plain content');
+    expect(contents.length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText('text/plain')).not.toBeInTheDocument();
+  });
+
+  it('renders embeddings in execution details', () => {
+    const scenario = mockScenario({
+      steps: [{
+        keyword: 'Then ',
+        name: 'screenshot captured',
+        line: 15,
+        result: { status: 'passed' },
+        embeddings: [
+          { mime_type: 'image/png', data: 'iVBORw0KGgo=', name: 'screenshot.png' }
+        ]
+      }]
+    });
+    const feature = mockFeature({ elements: [scenario] });
+    const reportData = [feature];
+    
+    render(<ScenarioView scenario={scenario} reportData={reportData} />);
+    
+    const img = screen.getByAltText('screenshot.png');
+    expect(img).toBeInTheDocument();
+    expect(img.getAttribute('src')).toBe('data:image/png;base64,iVBORw0KGgo=');
+  });
+
+  it('renders text embedding in execution details', () => {
+    const base64Content = btoa('Text attachment content');
+    const scenario = mockScenario({
+      steps: [{
+        keyword: 'Then ',
+        name: 'text attached',
+        line: 15,
+        result: { status: 'passed' },
+        embeddings: [
+          { mime_type: 'text/plain', data: base64Content, name: 'output.txt' }
+        ]
+      }]
+    });
+    const feature = mockFeature({ elements: [scenario] });
+    const reportData = [feature];
+    
+    render(<ScenarioView scenario={scenario} reportData={reportData} />);
+    
+    expect(screen.getByText('output.txt')).toBeInTheDocument();
+    expect(screen.getByText('Text attachment content')).toBeInTheDocument();
   });
 });

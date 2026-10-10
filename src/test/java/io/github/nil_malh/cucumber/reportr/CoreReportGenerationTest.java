@@ -91,6 +91,7 @@ class CoreReportGenerationTest {
                 <div id="root"></div>
                 <script>
                     window.CUCUMBER_REPORT_DATA = /* CUCUMBER_REPORT_DATA_PLACEHOLDER */;
+                    window.REPORT_GENERATED_AT = /* REPORT_GENERATED_AT_PLACEHOLDER */;
                 </script>
             </body>
             </html>
@@ -115,6 +116,8 @@ class CoreReportGenerationTest {
         assertThat(reportContent).contains("Sample Feature");
         assertThat(reportContent).contains("Sample Scenario");
         assertThat(reportContent).doesNotContain("/* CUCUMBER_REPORT_DATA_PLACEHOLDER */");
+        assertThat(reportContent).doesNotContain("/* REPORT_GENERATED_AT_PLACEHOLDER */");
+        assertThat(reportContent).contains("REPORT_GENERATED_AT");
     }
 
     @Test
@@ -319,6 +322,191 @@ class CoreReportGenerationTest {
         assertThat(reportContent).contains("Failing Scenario");
         assertThat(reportContent).contains("@smoke");
         assertThat(reportContent).contains("AssertionError");
+    }
+
+    @Test
+    @DisplayName("Should escape </script> sequences in JSON to prevent HTML injection")
+    void shouldEscapeScriptClosingTagInJson() throws IOException {
+        // Given - JSON containing a </script> sequence that could break the HTML
+        String jsonWithScriptTag = """
+            [
+              {
+                "uri": "features/test.feature",
+                "id": "test-feature",
+                "keyword": "Feature",
+                "name": "</script><script>alert('xss')</script>",
+                "line": 1,
+                "elements": []
+              }
+            ]
+            """;
+        Files.writeString(jsonFile.toPath(), jsonWithScriptTag, StandardCharsets.UTF_8);
+
+        // When
+        Core.generatePrettyReport(jsonFile, outputDir);
+
+        // Then
+        File reportFile = new File(outputDir, "cucumber-pretty-report.html");
+        assertThat(reportFile).exists();
+
+        String reportContent = Files.readString(reportFile.toPath(), StandardCharsets.UTF_8);
+        // The </script> in the JSON should be escaped to <\/script>
+        assertThat(reportContent).contains("<\\/script>");
+        assertThat(reportContent).doesNotContain("</script><script>alert");
+    }
+
+    @Test
+    @DisplayName("Should handle JSON file that is a directory (read failure)")
+    void shouldHandleJsonFileThatIsDirectory() {
+        // Given - a directory instead of a file (exists but cannot be read as a file)
+        File directoryFile = tempDir.resolve("not-a-file").toFile();
+        directoryFile.mkdirs();
+
+        // When & Then - should not throw exception
+        Core.generatePrettyReport(directoryFile, outputDir);
+
+        // Verify no report was generated
+        File reportFile = new File(outputDir, "cucumber-pretty-report.html");
+        assertThat(reportFile).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("Should handle output directory creation failure gracefully")
+    void shouldHandleOutputDirectoryCreationFailure() throws IOException {
+        // Given - a file blocking the directory creation path
+        Files.writeString(jsonFile.toPath(), validJson, StandardCharsets.UTF_8);
+        File blockingFile = tempDir.resolve("blocking").toFile();
+        Files.writeString(blockingFile.toPath(), "blocking file", StandardCharsets.UTF_8);
+        File impossibleOutputDir = new File(blockingFile, "output"); // parent is a file, not a dir
+
+        // When & Then - should not throw exception
+        Core.generatePrettyReport(jsonFile, impossibleOutputDir);
+
+        // Verify no report was generated
+        File reportFile = new File(impossibleOutputDir, "cucumber-pretty-report.html");
+        assertThat(reportFile).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("Should generate report with timestamp injected")
+    void shouldGenerateReportWithTimestamp() throws IOException {
+        // Given
+        Files.writeString(jsonFile.toPath(), validJson, StandardCharsets.UTF_8);
+
+        // When
+        Core.generatePrettyReport(jsonFile, outputDir);
+
+        // Then
+        File reportFile = new File(outputDir, "cucumber-pretty-report.html");
+        assertThat(reportFile).exists();
+
+        String reportContent = Files.readString(reportFile.toPath(), StandardCharsets.UTF_8);
+        // The timestamp placeholder should be replaced with a quoted ISO-8601 string
+        assertThat(reportContent).contains("window.REPORT_GENERATED_AT = \"");
+        assertThat(reportContent).contains("Z\""); // ISO-8601 ends with Z (UTC)
+    }
+
+    @Test
+    @DisplayName("Should handle JSON array with single empty feature")
+    void shouldHandleJsonWithSingleEmptyFeature() throws IOException {
+        // Given
+        String emptyFeatureJson = """
+            [
+              {
+                "uri": "features/empty.feature",
+                "id": "empty-feature",
+                "keyword": "Feature",
+                "name": "Empty Feature",
+                "line": 1,
+                "elements": []
+              }
+            ]
+            """;
+        Files.writeString(jsonFile.toPath(), emptyFeatureJson, StandardCharsets.UTF_8);
+
+        // When
+        Core.generatePrettyReport(jsonFile, outputDir);
+
+        // Then
+        File reportFile = new File(outputDir, "cucumber-pretty-report.html");
+        assertThat(reportFile).exists();
+        String reportContent = Files.readString(reportFile.toPath(), StandardCharsets.UTF_8);
+        assertThat(reportContent).contains("Empty Feature");
+    }
+
+    @Test
+    @DisplayName("Should handle write failure when report file path is a directory")
+    void shouldHandleWriteFailureWhenReportFilePathIsDirectory() throws IOException {
+        // Given - create the output directory, then create a directory with the report filename
+        // so that new FileOutputStream(reportFile) fails because it's a directory
+        Files.writeString(jsonFile.toPath(), validJson, StandardCharsets.UTF_8);
+        File outputDir2 = tempDir.resolve("write-fail-output").toFile();
+        outputDir2.mkdirs();
+        // Create a directory named "cucumber-pretty-report.html" to block file creation
+        new File(outputDir2, "cucumber-pretty-report.html").mkdirs();
+
+        // When & Then - should not throw exception (IOException is caught internally)
+        Core.generatePrettyReport(jsonFile, outputDir2);
+
+        // The report "file" is actually a directory, not a file - the write failed gracefully
+        File reportFile = new File(outputDir2, "cucumber-pretty-report.html");
+        assertThat(reportFile).isDirectory(); // It's a directory, not a file
+    }
+
+    @Test
+    @DisplayName("Should handle non-existent JSON file (readJsonReport null path)")
+    void shouldHandleNonExistentJsonFile() {
+        // Given - a file that doesn't exist
+        File nonExistent = new File(tempDir.toFile(), "does-not-exist.json");
+
+        // When & Then - should not throw, no report generated
+        Core.generatePrettyReport(nonExistent, outputDir);
+
+        File reportFile = new File(outputDir, "cucumber-pretty-report.html");
+        assertThat(reportFile).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("Should handle empty JSON file (readJsonReport null path)")
+    void shouldHandleEmptyJsonFile() throws IOException {
+        // Given - an empty file (0 bytes)
+        Files.writeString(jsonFile.toPath(), "", StandardCharsets.UTF_8);
+
+        // When & Then - should not throw, no report generated
+        Core.generatePrettyReport(jsonFile, outputDir);
+
+        File reportFile = new File(outputDir, "cucumber-pretty-report.html");
+        assertThat(reportFile).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("Should handle invalid JSON (sanitizeJson null path)")
+    void shouldHandleInvalidJson() throws IOException {
+        // Given - invalid JSON content
+        Files.writeString(jsonFile.toPath(), "this is not valid json {{{", StandardCharsets.UTF_8);
+
+        // When & Then - should not throw, no report generated (sanitization fails)
+        Core.generatePrettyReport(jsonFile, outputDir);
+
+        File reportFile = new File(outputDir, "cucumber-pretty-report.html");
+        assertThat(reportFile).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("Should create nested output directory if it doesn't exist")
+    void shouldCreateNestedOutputDirectory() throws IOException {
+        // Given
+        Files.writeString(jsonFile.toPath(), validJson, StandardCharsets.UTF_8);
+        File nestedOutput = new File(outputDir, "nested/deep/path");
+        assertThat(nestedOutput).doesNotExist();
+
+        // When
+        Core.generatePrettyReport(jsonFile, nestedOutput);
+
+        // Then
+        assertThat(nestedOutput).exists();
+        File reportFile = new File(nestedOutput, "cucumber-pretty-report.html");
+        assertThat(reportFile).exists();
     }
 
     private void createMockHtmlTemplate() throws IOException {

@@ -109,8 +109,8 @@ export interface ReportStats {
 export interface TabData {
   id: string;
   title: string;
-  type: 'feature' | 'scenario' | 'analytics';
-  data?: CucumberFeature | CucumberScenario | null;
+  type: 'feature' | 'scenario' | 'analytics' | 'step';
+  data?: CucumberFeature | CucumberScenario | CucumberStep | null;
 }
 
 export type FilterStatus = 'all' | 'passed' | 'failed' | 'skipped';
@@ -159,7 +159,7 @@ export interface ConsoleHook {
 export interface TabsHook {
   tabs: TabData[];
   activeTabId: string | null;
-  openTab: (item: CucumberFeature | CucumberScenario | { type: 'analytics'; name: string }) => void;
+  openTab: (item: CucumberFeature | CucumberScenario | CucumberStep | { type: 'analytics'; name: string }) => void;
   closeTab: (tabId: string) => void;
   closeAllTabs: () => void;
   setActiveTabId: (tabId: string | null) => void;
@@ -183,11 +183,14 @@ export interface FolderTreeProps {
   folderStructure: FolderStructure;
   expandedFolders: Set<string>;
   expandedFeatures: Set<string>;
-  onToggleFolder: (folderPath: string) => void;
-  onToggleFeature: (featureId: string) => void;
-  onOpenFeature: (feature: CucumberFeature) => void;
+  expandedScenarios: Set<string>;
+  activeTabId: string | null;
   searchTerm: string;
   filterStatus: FilterStatus;
+  onToggleFolder: (folderPath: string) => void;
+  onToggleFeature: (featureId: string) => void;
+  onToggleScenario: (scenarioId: string) => void;
+  onTabOpen: (item: CucumberFeature | CucumberScenario | CucumberStep) => void;
 }
 
 export interface StatsBarProps {

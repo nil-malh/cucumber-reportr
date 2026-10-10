@@ -260,4 +260,131 @@ describe('GlobalAnalytics', () => {
     // Should render without errors
     expect(screen.getByText('Global Test Execution Analytics')).toBeInTheDocument();
   });
+
+  it('renders Top 5 Features chart with formatted durations', () => {
+    const reportData: CucumberReport = [
+      mockFeature({
+        name: 'Slow Feature',
+        elements: [
+          mockScenario({
+            steps: [
+              createMockStep({ result: { status: 'passed', duration: 5000000000 } }) // 5s
+            ]
+          })
+        ]
+      })
+    ];
+
+    render(<GlobalAnalytics reportData={reportData} />);
+
+    // The formatted duration should appear in the Top 5 chart and table
+    expect(screen.getAllByText('Slow Feature')).toHaveLength(2); // chart + table
+    expect(screen.getAllByText('5.00s').length).toBeGreaterThan(0);
+  });
+
+  it('renders Top 5 Features chart with empty durations (0% width branch)', () => {
+    const reportData: CucumberReport = [
+      mockFeature({
+        name: 'Zero Duration Feature',
+        elements: [
+          mockScenario({
+            steps: [
+              createMockStep({ result: { status: 'passed', duration: 0 } })
+            ]
+          })
+        ]
+      })
+    ];
+
+    render(<GlobalAnalytics reportData={reportData} />);
+
+    // Should render the chart without crashing even with 0 duration
+    expect(screen.getByText('Top 5 Features by Execution Time')).toBeInTheDocument();
+    expect(screen.getAllByText('Zero Duration Feature')).toHaveLength(2); // chart + table
+  });
+
+  it('renders donut charts with zero total (empty data branch)', () => {
+    // Empty report data triggers the zero-total branches in DonutChart
+    render(<GlobalAnalytics reportData={[]} />);
+
+    // Charts should still render (with 0 total)
+    expect(screen.getByText('Scenario Status Distribution')).toBeInTheDocument();
+    expect(screen.getByText('Step Status Distribution')).toBeInTheDocument();
+  });
+
+  it('renders donut charts with data (non-zero total branch)', () => {
+    const reportData: CucumberReport = [
+      mockFeature({
+        elements: [
+          mockScenario({
+            steps: [
+              createMockStep({ result: { status: 'passed', duration: 1000000 } }),
+              createMockStep({ result: { status: 'failed', duration: 2000000 } })
+            ]
+          })
+        ]
+      })
+    ];
+
+    render(<GlobalAnalytics reportData={reportData} />);
+
+    // Donut charts should render with non-zero total
+    expect(screen.getByText('Scenario Status Distribution')).toBeInTheDocument();
+    // The total (1 scenario) should appear in the donut center
+    expect(screen.getAllByText('1').length).toBeGreaterThan(0);
+  });
+
+  it('renders feature performance table with all columns', () => {
+    const reportData: CucumberReport = [
+      mockFeature({
+        name: 'Complete Feature',
+        elements: [
+          mockScenario({
+            name: 'Passed scenario',
+            steps: [createMockStep({ result: { status: 'passed', duration: 1000000 } })]
+          }),
+          mockScenario({
+            name: 'Failed scenario',
+            steps: [createMockStep({ result: { status: 'failed', duration: 2000000 } })]
+          })
+        ]
+      })
+    ];
+
+    render(<GlobalAnalytics reportData={reportData} />);
+
+    // Table headers
+    expect(screen.getByText('Feature Performance Breakdown')).toBeInTheDocument();
+    expect(screen.getAllByText('Scenarios').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Steps').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Passed').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Failed').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Success Rate').length).toBeGreaterThan(0);
+
+    // Feature name appears in both chart and table
+    expect(screen.getAllByText('Complete Feature').length).toBeGreaterThan(0);
+  });
+
+  it('handles features with pending and skipped scenarios', () => {
+    const reportData: CucumberReport = [
+      mockFeature({
+        elements: [
+          mockScenario({
+            name: 'Pending scenario',
+            steps: [createMockStep({ result: { status: 'pending' } })]
+          }),
+          mockScenario({
+            name: 'Skipped scenario',
+            steps: [createMockStep({ result: { status: 'skipped' } })]
+          })
+        ]
+      })
+    ];
+
+    render(<GlobalAnalytics reportData={reportData} />);
+
+    // Pending and skipped should appear in the charts (may be split across elements)
+    expect(screen.getAllByText(/Pending/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Skipped/).length).toBeGreaterThan(0);
+  });
 });

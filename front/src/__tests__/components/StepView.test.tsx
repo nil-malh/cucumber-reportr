@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import StepView from '../../components/StepView';
 import { mockStep } from '../testUtils';
 import type { CucumberStep } from '../../types/cucumber';
@@ -99,6 +99,44 @@ describe('StepView', () => {
     render(<StepView step={step} />);
     
     expect(screen.getByText('AssertionError: Expected true but was false')).toBeInTheDocument();
+    // No stack trace toggle for single-line errors
+    expect(screen.queryByText(/Show stack trace/)).not.toBeInTheDocument();
+  });
+
+  it('collapses multi-line stack trace by default and expands on click', () => {
+    const multiLineError = [
+      'io.michelin.choreography.nrtengine.exceptions.ConsumerException: Error while waiting for record to appear in topic',
+      '    at io.michelin.choreography.nrtengine.steps.services.ConsumerValidationService.executeConsumer(ConsumerValidationService.java:299)',
+      '    at io.michelin.choreography.nrtengine.steps.services.ConsumerValidationService.validateSingleRecord(ConsumerValidationService.java:470)',
+    ].join('\n');
+    
+    const step: CucumberStep = {
+      ...mockStep(),
+      result: {
+        status: 'failed',
+        error_message: multiLineError
+      }
+    };
+    
+    render(<StepView step={step} />);
+    
+    // First line is shown by default
+    expect(screen.getByText(/Error while waiting for record/)).toBeInTheDocument();
+    // Stack trace toggle is visible
+    expect(screen.getByText(/Show stack trace \(2 lines\)/)).toBeInTheDocument();
+    // Stack trace lines are NOT rendered until expanded
+    expect(screen.queryByText(/executeConsumer/)).not.toBeInTheDocument();
+    
+    // Expand stack trace
+    fireEvent.click(screen.getByText(/Show stack trace/));
+    
+    // Stack trace lines are now rendered
+    expect(screen.getByText(/Hide stack trace/)).toBeInTheDocument();
+    expect(screen.getByText(/executeConsumer/)).toBeInTheDocument();
+    
+    // Collapse again
+    fireEvent.click(screen.getByText(/Hide stack trace/));
+    expect(screen.queryByText(/executeConsumer/)).not.toBeInTheDocument();
   });
 
   it('renders step with undefined status when no result', () => {
@@ -151,9 +189,11 @@ describe('StepView', () => {
     expect(screen.getByText('100')).toBeInTheDocument();
     expect(screen.getByText('99')).toBeInTheDocument();
     
-    // Check error message
+    // Check error message (first line shown by default)
     expect(screen.getByText(/Expected: 100/)).toBeInTheDocument();
-    expect(screen.getByText(/Actual: 99/)).toBeInTheDocument();
+    // Second line is in the collapsible stack trace (not rendered until expanded)
+    expect(screen.getByText(/Show stack trace/)).toBeInTheDocument();
+    expect(screen.queryByText(/Actual: 99/)).not.toBeInTheDocument();
   });
 
   it('does not render data table when step has no rows', () => {
@@ -186,5 +226,52 @@ describe('StepView', () => {
     render(<StepView step={step} />);
     
     expect(screen.queryByText(/AssertionError/)).not.toBeInTheDocument();
+  });
+
+  it('renders doc_string content', () => {
+    const step: CucumberStep = {
+      ...mockStep(),
+      doc_string: {
+        value: 'Some multi-line\ntext content',
+        line: 10,
+        content_type: 'text/plain'
+      }
+    };
+    
+    render(<StepView step={step} />);
+    
+    expect(screen.getByText('text/plain')).toBeInTheDocument();
+    expect(screen.getByText(/Some multi-line/)).toBeInTheDocument();
+    expect(screen.getByText(/text content/)).toBeInTheDocument();
+  });
+
+  it('renders doc_string without content_type', () => {
+    const step: CucumberStep = {
+      ...mockStep(),
+      doc_string: {
+        value: 'Plain doc string content',
+        line: 10
+      }
+    };
+    
+    render(<StepView step={step} />);
+    
+    expect(screen.getByText('Plain doc string content')).toBeInTheDocument();
+    expect(screen.queryByText('text/plain')).not.toBeInTheDocument();
+  });
+
+  it('renders embeddings in step', () => {
+    const step: CucumberStep = {
+      ...mockStep(),
+      embeddings: [
+        { mime_type: 'image/png', data: 'iVBORw0KGgo=', name: 'screenshot.png' }
+      ]
+    };
+    
+    render(<StepView step={step} />);
+    
+    const img = screen.getByAltText('screenshot.png');
+    expect(img).toBeInTheDocument();
+    expect(img.getAttribute('src')).toBe('data:image/png;base64,iVBORw0KGgo=');
   });
 });

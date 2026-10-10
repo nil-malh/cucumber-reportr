@@ -24,7 +24,7 @@ export const formatDuration = (duration?: number): string => {
   return ms < 1000 ? `${ms.toFixed(0)}ms` : `${(ms / 1000).toFixed(2)}s`;
 };
 
-interface FeatureWithPath extends CucumberFeature {
+export interface FeatureWithPath extends CucumberFeature {
   fileName: string;
   fullPath: string;
   displayPath: string;
@@ -224,23 +224,4 @@ export const calculateStats = (reportData: CucumberReport): ReportStats => {
     totalDuration,
     passRate
   };
-};
-
-export const checkFolderHasMatches = (
-  folderData: { features: CucumberFeature[]; subfolders: Record<string, any> }, 
-  searchTerm: string, 
-  filterStatus: FilterStatus
-): boolean => {
-  // Check files in this folder
-  const hasMatchingFiles = folderData.features?.some(feature => {
-    const scenarios = filterScenarios(feature, searchTerm, filterStatus);
-    return scenarios.length > 0;
-  });
-  
-  if (hasMatchingFiles) return true;
-  
-  // Check subfolders recursively
-  return Object.values(folderData.subfolders || {}).some(subfolder => 
-    checkFolderHasMatches(subfolder, searchTerm, filterStatus)
-  );
 };
