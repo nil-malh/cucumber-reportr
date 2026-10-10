@@ -15,6 +15,11 @@ on:
         required: false
         type: boolean
         default: false
+      maven-version:
+        description: "Maven version to publish with (3.10.0 breaks the Central bundle)"
+        type: string
+        required: false
+        default: '3.9.16'
 
 permissions:
   contents: write
@@ -43,6 +48,32 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          
+      - name: Cache Maven ${{ inputs.maven-version }}
+        id: maven-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.maven-dist/apache-maven-${{ inputs.maven-version }}
+          key: apache-maven-${{ inputs.maven-version }}
+
+      - name: Download Maven ${{ inputs.maven-version }}
+        if: steps.maven-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://archive.apache.org/dist/maven/maven-3/${{ inputs.maven-version }}/binaries"
+          TARBALL="apache-maven-${{ inputs.maven-version }}-bin.tar.gz"
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 5 --retry-all-errors -o "$TARBALL" "$BASE/$TARBALL"
+          curl -fsSL --retry 5 --retry-all-errors -o "$TARBALL.sha512" "$BASE/$TARBALL.sha512"
+          echo "$(cut -d' ' -f1 "$TARBALL.sha512")  $TARBALL" | sha512sum -c -
+          mkdir -p ~/.maven-dist
+          tar -xzf "$TARBALL" -C ~/.maven-dist
+
+      - name: Use Maven ${{ inputs.maven-version }}
+        shell: bash
+        run: |
+          echo "$HOME/.maven-dist/apache-maven-${{ inputs.maven-version }}/bin" >> "$GITHUB_PATH"
           
       - name: Extract version
         id: version
