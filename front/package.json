@@ -11,7 +11,7 @@
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@tailwindcss/vite": "^4.3.3",
-    "lucide-react": "^1.54.0",
+    "lucide-react": "^1.55.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "recharts": "^3.10.1"
@@ -36,8 +36,8 @@
     "jest-environment-jsdom": "^30.5.2",
     "postcss": "^8.5.29",
     "tailwindcss": "^4.3.3",
-    "ts-jest": "^29.4.14",
-    "typescript": "^7.0.2",
+    "ts-jest": "^29.1.2",
+    "typescript": "^6.0.2",
     "vite": "^8.3.4",
     "vite-plugin-singlefile": "^2.3.3"
   },

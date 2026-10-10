@@ -2,18 +2,18 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import tailwindcss from '@tailwindcss/vite';
-import path from 'path';
+import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
   plugins: [react(), viteSingleFile(), tailwindcss()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@/components': path.resolve(__dirname, './src/components'),
-      '@/hooks': path.resolve(__dirname, './src/hooks'),
-      '@/utils': path.resolve(__dirname, './src/utils'),
-      '@/data': path.resolve(__dirname, './src/data'),
-      '@/types': path.resolve(__dirname, './src/types'),
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@/components': fileURLToPath(new URL('./src/components', import.meta.url)),
+      '@/hooks': fileURLToPath(new URL('./src/hooks', import.meta.url)),
+      '@/utils': fileURLToPath(new URL('./src/utils', import.meta.url)),
+      '@/data': fileURLToPath(new URL('./src/data', import.meta.url)),
+      '@/types': fileURLToPath(new URL('./src/types', import.meta.url)),
     },
   },
   server: {

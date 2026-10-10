@@ -13,10 +13,12 @@ describe('reportData', () => {
     originalSetCucumberReportData = (window as any).setCucumberReportData;
     originalGetCucumberReportData = (window as any).getCucumberReportData;
 
-    // Reset window properties
-    delete (window as any).CUCUMBER_REPORT_DATA;
-    delete (window as any).setCucumberReportData;
-    delete (window as any).getCucumberReportData;
+    // Reset window properties. In jsdom (Jest 30) properties assigned to
+    // `window` are non-configurable, so `delete` throws. Setting to undefined
+    // is enough for the module's `typeof === 'undefined'` init check.
+    (window as any).CUCUMBER_REPORT_DATA = undefined;
+    (window as any).setCucumberReportData = undefined;
+    (window as any).getCucumberReportData = undefined;
 
     // Clear module cache and re-import to trigger initialization
     jest.resetModules();
@@ -65,7 +67,7 @@ describe('reportData', () => {
     });
 
     afterEach(() => {
-      dispatchEventSpy.mockRestore();
+      dispatchEventSpy?.mockRestore();
     });
 
     it('should set CUCUMBER_REPORT_DATA with provided data', () => {
@@ -163,7 +165,7 @@ describe('reportData', () => {
     });
 
     afterEach(() => {
-      dispatchEventSpy.mockRestore();
+      dispatchEventSpy?.mockRestore();
     });
 
     it('should create CustomEvent with correct type and detail', () => {
